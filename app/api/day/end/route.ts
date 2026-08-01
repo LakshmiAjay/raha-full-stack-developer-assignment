@@ -59,20 +59,18 @@ export async function POST(request: Request) {
         endLocation,
       ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime()),
       distance = await routeDistance(points);
-    await database
-      .collection("days")
-      .updateOne(
-        { _id: day._id, status: "active" },
-        {
-          $set: {
-            status: "completed",
-            endedAt,
-            endLocation,
-            totalDistanceKm: distance.km,
-            distanceSource: distance.source,
-          },
+    await database.collection("days").updateOne(
+      { _id: day._id, status: "active" },
+      {
+        $set: {
+          status: "completed",
+          endedAt,
+          endLocation,
+          totalDistanceKm: distance.km,
+          distanceSource: distance.source,
         },
-      );
+      },
+    );
     return NextResponse.json({
       totalDistanceKm: distance.km,
       distanceSource: distance.source,

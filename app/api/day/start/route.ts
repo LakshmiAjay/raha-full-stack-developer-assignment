@@ -47,21 +47,19 @@ export async function POST(request: Request) {
         { error: "Your workday is already running" },
         { status: 409 },
       );
-    const result = await database
-      .collection("days")
-      .insertOne({
-        userId: new ObjectId(s.userId),
-        branchId: new ObjectId(s.branchId),
-        localDate,
-        timezone: body.timezone,
-        status: "active",
-        startedAt: now,
-        startLocation: {
-          ...body.location,
-          capturedAt: new Date(body.location.capturedAt),
-        },
-        activities: [],
-      });
+    const result = await database.collection("days").insertOne({
+      userId: new ObjectId(s.userId),
+      branchId: new ObjectId(s.branchId),
+      localDate,
+      timezone: body.timezone,
+      status: "active",
+      startedAt: now,
+      startLocation: {
+        ...body.location,
+        capturedAt: new Date(body.location.capturedAt),
+      },
+      activities: [],
+    });
     return NextResponse.json({ _id: result.insertedId }, { status: 201 });
   } catch (e) {
     return apiError(e);
