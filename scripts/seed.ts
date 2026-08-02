@@ -101,6 +101,8 @@ async function main() {
     timezone: "Asia/Kolkata",
     startTime: "09:00",
     endTime: "18:00",
+    saturdayHoliday: false,
+    sundayHoliday: false,
     holidays: [],
     updatedAt: new Date(),
   });

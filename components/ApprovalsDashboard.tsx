@@ -29,6 +29,8 @@ type Policy = {
   timezone: string;
   startTime: string;
   endTime: string;
+  saturdayHoliday: boolean;
+  sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
 };
 const typeLabels: Record<ApprovalType, string> = {
@@ -54,6 +56,8 @@ export default function ApprovalsDashboard({
       timezone: "Asia/Kolkata",
       startTime: "09:00",
       endTime: "18:00",
+      saturdayHoliday: false,
+      sundayHoliday: false,
       holidays: [],
     }),
     [requestType, setRequestType] = useState<Exclude<ApprovalType, "lead_creation">>("holiday_work"),
@@ -72,7 +76,11 @@ export default function ApprovalsDashboard({
     if (!policyResponse.ok)
       throw new Error(policyJson.error || "Could not load work policy");
     setRequests(approvalsJson);
-    setPolicy(policyJson);
+    setPolicy({
+      ...policyJson,
+      saturdayHoliday: Boolean(policyJson.saturdayHoliday),
+      sundayHoliday: Boolean(policyJson.sundayHoliday),
+    });
   }, []);
   useEffect(() => {
     load().catch((loadError) =>
@@ -103,7 +111,8 @@ export default function ApprovalsDashboard({
   }
   async function submitPreapproval(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget,
+      form = new FormData(formElement);
     if (
       await send(
         {
@@ -114,11 +123,12 @@ export default function ApprovalsDashboard({
         },
         "Pre-approval request sent to your manager.",
       )
-    ) event.currentTarget.reset();
+    ) formElement.reset();
   }
   async function submitLead(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget,
+      form = new FormData(formElement);
     if (
       await send(
         {
@@ -133,7 +143,7 @@ export default function ApprovalsDashboard({
         },
         "Lead proposal sent. It will appear in the lead list after approval.",
       )
-    ) event.currentTarget.reset();
+    ) formElement.reset();
   }
   async function decide(id: string, decision: "approved" | "rejected") {
     const note = window.prompt(
@@ -252,6 +262,34 @@ export default function ApprovalsDashboard({
               <div className="approval-two-col">
                 <div className="field"><label>Start time</label><input className="input" type="time" value={policy.startTime} onChange={(e) => setPolicy({ ...policy, startTime: e.target.value })} required /></div>
                 <div className="field"><label>End time</label><input className="input" type="time" value={policy.endTime} onChange={(e) => setPolicy({ ...policy, endTime: e.target.value })} required /></div>
+              </div>
+              <div className="weekend-options">
+                <label className="policy-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={policy.saturdayHoliday}
+                    onChange={(event) =>
+                      setPolicy({
+                        ...policy,
+                        saturdayHoliday: event.target.checked,
+                      })
+                    }
+                  />
+                  <span><strong>Saturday</strong> is a holiday</span>
+                </label>
+                <label className="policy-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={policy.sundayHoliday}
+                    onChange={(event) =>
+                      setPolicy({
+                        ...policy,
+                        sundayHoliday: event.target.checked,
+                      })
+                    }
+                  />
+                  <span><strong>Sunday</strong> is a holiday</span>
+                </label>
               </div>
               <div className="status-row" style={{ alignItems: "center", marginTop: 22 }}>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>Holidays</label>

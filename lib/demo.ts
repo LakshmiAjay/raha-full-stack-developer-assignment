@@ -190,6 +190,8 @@ const state = globalThis as typeof globalThis & {
     timezone: string;
     startTime: string;
     endTime: string;
+    saturdayHoliday: boolean;
+    sundayHoliday: boolean;
     holidays: { date: string; name: string }[];
     updatedAt: Date;
   };
@@ -212,6 +214,8 @@ export const demoPolicy = () =>
     timezone: "Asia/Kolkata",
     startTime: "09:00",
     endTime: "18:00",
+    saturdayHoliday: false,
+    sundayHoliday: false,
     holidays: [],
     updatedAt: new Date(),
   });

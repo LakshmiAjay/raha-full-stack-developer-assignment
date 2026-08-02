@@ -12,21 +12,28 @@ export async function GET() {
   if (!session) return unauthorized();
   if (session.role === "associate")
     return NextResponse.json(await policyForAssociate(session.userId, session.branchId));
-  if (demoEnabled()) return NextResponse.json(demoPolicy());
+  if (demoEnabled()) {
+    const policy = demoPolicy();
+    return NextResponse.json({
+      ...policy,
+      saturdayHoliday: Boolean(policy.saturdayHoliday),
+      sundayHoliday: Boolean(policy.sundayHoliday),
+    });
+  }
   const stored = await (await db()).collection("workPolicies").findOne({
     managerId: new ObjectId(session.userId),
     branchId: new ObjectId(session.branchId),
   });
-  return NextResponse.json(
-    stored ?? {
-      managerId: session.userId,
-      branchId: session.branchId,
-      timezone: "Asia/Kolkata",
-      startTime: "09:00",
-      endTime: "18:00",
-      holidays: [],
-    },
-  );
+  return NextResponse.json({
+    managerId: session.userId,
+    branchId: session.branchId,
+    timezone: String(stored?.timezone ?? "Asia/Kolkata"),
+    startTime: String(stored?.startTime ?? "09:00"),
+    endTime: String(stored?.endTime ?? "18:00"),
+    saturdayHoliday: Boolean(stored?.saturdayHoliday),
+    sundayHoliday: Boolean(stored?.sundayHoliday),
+    holidays: stored?.holidays ?? [],
+  });
 }
 
 export async function PUT(request: Request) {

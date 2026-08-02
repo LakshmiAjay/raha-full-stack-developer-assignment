@@ -48,6 +48,8 @@ export const workPolicySchema = z.object({
   timezone: z.string().trim().min(1).max(80),
   startTime: timeSchema,
   endTime: timeSchema,
+  saturdayHoliday: z.boolean(),
+  sundayHoliday: z.boolean(),
   holidays: z
     .array(
       z.object({

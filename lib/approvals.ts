@@ -15,6 +15,8 @@ export type PolicyView = {
   timezone: string;
   startTime: string;
   endTime: string;
+  saturdayHoliday: boolean;
+  sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
 };
 
@@ -30,7 +32,16 @@ export async function managerFor(userId: string) {
 export async function policyForAssociate(userId: string, branchId: string): Promise<PolicyView> {
   const managerId = await managerFor(userId);
   if (!managerId) throw new Error("This associate does not have a manager assigned");
-  if (demoEnabled()) return { ...demoPolicy(), managerId, branchId };
+  if (demoEnabled()) {
+    const policy = demoPolicy();
+    return {
+      ...policy,
+      managerId,
+      branchId,
+      saturdayHoliday: Boolean(policy.saturdayHoliday),
+      sundayHoliday: Boolean(policy.sundayHoliday),
+    };
+  }
   const stored = await (await db()).collection("workPolicies").findOne({
     managerId: new ObjectId(managerId),
     branchId: new ObjectId(branchId),
@@ -41,6 +52,8 @@ export async function policyForAssociate(userId: string, branchId: string): Prom
     timezone: String(stored?.timezone ?? "Asia/Kolkata"),
     startTime: String(stored?.startTime ?? "09:00"),
     endTime: String(stored?.endTime ?? "18:00"),
+    saturdayHoliday: Boolean(stored?.saturdayHoliday),
+    sundayHoliday: Boolean(stored?.sundayHoliday),
     holidays: (stored?.holidays as PolicyView["holidays"] | undefined) ?? [],
   };
 }

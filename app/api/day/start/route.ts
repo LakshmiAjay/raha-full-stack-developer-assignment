@@ -21,15 +21,23 @@ export async function POST(request: Request) {
       policy = await policyForAssociate(s.userId, s.branchId),
       policyNow = dateAndTimeInZone(now, policy.timezone),
       localDate = localDateInZone(now, body.timezone),
-      holiday = policy.holidays.find((item) => item.date === policyNow.date),
+      namedHoliday = policy.holidays.find((item) => item.date === policyNow.date),
+      dayOfWeek = new Date(`${policyNow.date}T00:00:00Z`).getUTCDay(),
+      recurringHoliday =
+        dayOfWeek === 6 && policy.saturdayHoliday
+          ? "Saturday"
+          : dayOfWeek === 0 && policy.sundayHoliday
+            ? "Sunday"
+            : undefined,
+      holidayName = namedHoliday?.name ?? recurringHoliday,
       outsideStartWindow =
         policyNow.time < policy.startTime || policyNow.time > policy.endTime,
       gates = [
-        ...(holiday
+        ...(holidayName
           ? [
               {
                 type: "holiday_work" as const,
-                reason: `Work on ${holiday.name} requires manager approval`,
+                reason: `Work on ${holidayName} requires manager approval`,
               },
             ]
           : []),

@@ -28,6 +28,8 @@ export type WorkPolicy = {
   timezone: string;
   startTime: string;
   endTime: string;
+  saturdayHoliday: boolean;
+  sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
   updatedAt: Date;
 };
