@@ -1,6 +1,6 @@
 # Raha Fielddesk
 
-A field activity and distance reimbursement application built for Raha's full-stack assessment. Sales associates can open a day, record lead visits with live location, close the day, and see their ordered timeline. Branch heads get a branch-scoped activity view, associate search, date filters, daily totals, and a monthly CSV reimbursement export. A manager-controlled approval workspace covers new lead proposals, holiday work, and session-time exceptions, including requests made in advance.
+A field activity and distance reimbursement application built for Raha's full-stack assessment. Sales associates can open a day, record lead visits with live location, close the day, and see their ordered timeline. Branch heads get a branch-scoped activity view, associate search, date filters, daily totals, session start/end notifications, and a monthly CSV reimbursement export. A manager-controlled approval workspace covers new lead proposals, holiday work, and session-time exceptions, including requests made in advance.
 
 ## Run locally
 
@@ -24,6 +24,7 @@ Seed login accounts (all use `Raha@123`):
 - `leads`: branch-owned lead, contact, and known location.
 - `days`: one document per workday session with embedded activities. Start, activity, and end locations retain coordinate, browser-reported accuracy, and capture time. Embedding makes a day's ordered route atomic and easy to audit.
 - `approvals`: associate requests, manager decisions, decision notes, and the request-specific payload. Leads are created only after their proposal is approved.
+- `notifications`: branch-head session start/end events with unread state and links back to the recorded day.
 - `workPolicies`: manager-owned timezone, session window, and named branch holidays.
 
 A partial unique index allows only one active day per associate. Branch and date indexes support the manager view and monthly aggregation.
@@ -31,6 +32,8 @@ A partial unique index allows only one active day per associate. Branch and date
 ## Authorization and edge cases
 
 Role checks run inside every API handler; the UI and middleware are convenience layers, not the security boundary. Branch heads query only associates assigned to them and can decide only requests addressed to them. Associates can access only their own current/latest day and approval history and cannot choose a user ID in day APIs. Leads are checked against the associate's branch.
+
+Session notifications are saved when an associate successfully starts or ends a session. The branch-head bell checks for new events every 30 seconds and whenever the browser tab returns to the foreground, avoiding the operational overhead of WebSockets for this low-volume workflow.
 
 Associates may propose leads, but proposals remain outside the branch lead list until the assigned manager approves them. Managers set the branch work window, holidays, and daily break allowance. Associates can split that allowance across multiple planned breaks; location capture and visit logging pause during each break. Additional break minutes require a manager-approved request and are added only to the requested day. Starting or ending outside the work window, or starting work on a holiday, is blocked unless a matching approval exists; a blocked attempt creates a pending request automatically. The Approvals page also supports advance requests.
 

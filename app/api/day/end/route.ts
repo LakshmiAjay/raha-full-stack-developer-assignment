@@ -15,6 +15,7 @@ import {
   policyForAssociate,
 } from "@/lib/approvals";
 import { effectiveActiveBreak } from "@/lib/breaks";
+import { createSessionNotification } from "@/lib/notifications";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -75,6 +76,16 @@ export async function POST(request: Request) {
       });
       (day.routeSamples ??= [day.startLocation]).push(endLocation);
       logCapturedLocation("day-end", s.userId, endLocation);
+      await createSessionNotification({
+        type: "session_ended",
+        recipientId: policy.managerId,
+        actorId: s.userId,
+        actorName: s.name,
+        branchId: s.branchId,
+        dayId: day._id,
+        sessionNumber: day.sessionNumber ?? 1,
+        createdAt: endedAt,
+      });
       return NextResponse.json({
         totalDistanceKm: distance.km,
         distanceSource: distance.source,
@@ -95,7 +106,7 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     const distance = await routeDetails(dayRoutePoints(day, endLocation));
-    await database.collection("days").updateOne(
+    const update = await database.collection("days").updateOne(
       { _id: day._id, status: "active" },
       {
         $set: {
@@ -109,7 +120,22 @@ export async function POST(request: Request) {
         $push: { routeSamples: endLocation } as never,
       },
     );
+    if (!update.modifiedCount)
+      return NextResponse.json(
+        { error: "This workday has already ended" },
+        { status: 409 },
+      );
     logCapturedLocation("day-end", s.userId, endLocation);
+    await createSessionNotification({
+      type: "session_ended",
+      recipientId: policy.managerId,
+      actorId: s.userId,
+      actorName: s.name,
+      branchId: s.branchId,
+      dayId: String(day._id),
+      sessionNumber: day.sessionNumber ?? 1,
+      createdAt: endedAt,
+    });
     return NextResponse.json({
       totalDistanceKm: distance.km,
       distanceSource: distance.source,

@@ -14,6 +14,7 @@ async function main() {
     db.collection("leads").deleteMany({}),
     db.collection("days").deleteMany({}),
     db.collection("approvals").deleteMany({}),
+    db.collection("notifications").deleteMany({}),
     db.collection("workPolicies").deleteMany({}),
   ]);
   const branchId = new ObjectId(),
@@ -194,6 +195,9 @@ async function main() {
     db
       .collection("workPolicies")
       .createIndex({ managerId: 1, branchId: 1 }, { unique: true }),
+    db
+      .collection("notifications")
+      .createIndex({ recipientId: 1, branchId: 1, createdAt: -1 }),
   ]);
   console.log("Seeded Raha Fielddesk");
   console.log("Head: meera@raha.in / Raha@123");
