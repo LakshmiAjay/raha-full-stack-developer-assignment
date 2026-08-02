@@ -66,7 +66,11 @@ For production, use a contracted routing service instead of OSRM's public demo s
 
 ## Continuous route capture
 
-A browser could use `watchPosition`, batch samples, reject low-accuracy jumps, and upload periodically. In practice, mobile browsers throttle or stop background tabs, the OS may suspend them, battery usage is significant, and users can terminate the page. A production-grade solution should use a consent-led native app with background-location permissions, an offline queue, adaptive sampling based on motion, signed upload batches, retention controls, and clear on-duty/off-duty indicators. Raw trails should be access-limited and retained only as long as reimbursement or audit policy requires.
+**Browser approach:** while an associate has an active day and explicitly enables continuous tracking, the app can use `watchPosition`, reject stale or low-accuracy fixes, sample at a controlled interval, batch points, and upload them in timestamp order. The current optional two-minute sampler demonstrates this foreground-only approach.
+
+**Browser limitations:** mobile browsers may throttle background tabs, suspend JavaScript when the screen locks, lose connectivity, or stop tracking when the user closes the page. Continuous GPS also consumes battery, browser permission can be revoked, and a browser cannot guarantee uninterrupted background collection.
+
+**Production solution:** use a native mobile app with OS background-location permissions and clear on-duty/off-duty controls.
 
 ## Responsive and progressive web app support
 
