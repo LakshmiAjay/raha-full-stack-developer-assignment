@@ -13,8 +13,7 @@ type Coordinate = { latitude: number; longitude: number };
 type RoutePoint = Coordinate & { capturedAt: string; accuracy: number };
 type VisitMarker = { _id: string; leadName: string; location: Coordinate };
 
-const TILE_SIZE = 256,
-  MAP_HEIGHT = 350;
+const TILE_SIZE = 256;
 
 function project(point: Coordinate, zoom: number) {
   const scale = TILE_SIZE * 2 ** zoom,
@@ -27,7 +26,7 @@ function project(point: Coordinate, zoom: number) {
   };
 }
 
-function fitZoom(points: Coordinate[], width: number) {
+function fitZoom(points: Coordinate[], width: number, height: number) {
   if (points.length < 2) return 16;
   for (let zoom = 18; zoom >= 3; zoom--) {
     const projected = points.map((point) => project(point, zoom)),
@@ -35,7 +34,7 @@ function fitZoom(points: Coordinate[], width: number) {
       ys = projected.map((point) => point.y);
     if (
       Math.max(...xs) - Math.min(...xs) <= width - 90 &&
-      Math.max(...ys) - Math.min(...ys) <= MAP_HEIGHT - 90
+      Math.max(...ys) - Math.min(...ys) <= height - 90
     )
       return zoom;
   }
@@ -80,7 +79,7 @@ export default function RouteMap({
     const element = containerRef.current;
     if (!element) return;
     const resize = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(320, Math.round(entry.contentRect.width))),
+      setWidth(Math.max(240, Math.round(entry.contentRect.width))),
     );
     resize.observe(element);
     return () => resize.disconnect();
@@ -140,7 +139,8 @@ export default function RouteMap({
     }));
   }
 
-  const map = useMemo(() => {
+  const mapHeight = width <= 520 ? 280 : width <= 900 ? 320 : 350,
+    map = useMemo(() => {
     const recordedPath = pathPoints?.length ? pathPoints : routePoints,
       coordinates = [
         ...routePoints,
@@ -152,18 +152,21 @@ export default function RouteMap({
       usable = coordinates.length
         ? coordinates
         : [{ latitude: 17.385, longitude: 78.4867 }],
-      zoom = Math.max(3, Math.min(18, fitZoom(usable, width) + zoomOffset)),
+      zoom = Math.max(
+        3,
+        Math.min(18, fitZoom(usable, width, mapHeight) + zoomOffset),
+      ),
       projected = usable.map((point) => project(point, zoom)),
       xs = projected.map((point) => point.x),
       ys = projected.map((point) => point.y),
       centerX = (Math.min(...xs) + Math.max(...xs)) / 2,
       centerY = (Math.min(...ys) + Math.max(...ys)) / 2,
       originX = centerX - width / 2 - pan.x,
-      originY = centerY - MAP_HEIGHT / 2 - pan.y,
+      originY = centerY - mapHeight / 2 - pan.y,
       minTileX = Math.floor(originX / TILE_SIZE),
       maxTileX = Math.floor((originX + width) / TILE_SIZE),
       minTileY = Math.floor(originY / TILE_SIZE),
-      maxTileY = Math.floor((originY + MAP_HEIGHT) / TILE_SIZE),
+      maxTileY = Math.floor((originY + mapHeight) / TILE_SIZE),
       tileCount = 2 ** zoom,
       tiles = [];
     for (let x = minTileX; x <= maxTileX; x++)
@@ -204,6 +207,7 @@ export default function RouteMap({
     active,
     currentLocation,
     liveTrail,
+    mapHeight,
     pathPoints,
     pan,
     routePoints,
@@ -253,7 +257,7 @@ export default function RouteMap({
         onPointerUp={stopPan}
         ref={containerRef}
         role="region"
-        style={{ height: MAP_HEIGHT }}
+        style={{ height: mapHeight }}
         tabIndex={0}
       >
         <div className="map-zoom-controls" aria-label="Map zoom controls">

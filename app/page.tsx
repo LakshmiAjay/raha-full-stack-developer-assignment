@@ -11,7 +11,7 @@ export default async function Home() {
           <span className="brandmark">R</span> Raha Fielddesk
         </div>
         <div>
-          <span className="eyebrow" style={{ color: "#f0c566" }}>
+          <span className="eyebrow" style={{ color: "rgba(253,251,212,0.55)", letterSpacing: "0.16em" }}>
             Field operations · Hyderabad
           </span>
           <h1>
@@ -26,7 +26,7 @@ export default async function Home() {
             heads to close the month without chasing spreadsheets.
           </p>
         </div>
-        <small style={{ color: "#81928d" }}>
+        <small style={{ color: "rgba(253,251,212,0.38)", fontFamily: "var(--mono)", fontSize: 11 }}>
           Raha Fintech · Internal workspace
         </small>
         <div className="route-line" />

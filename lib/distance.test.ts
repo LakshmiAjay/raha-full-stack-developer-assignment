@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   dayRoutePoints,
   haversineKm,
@@ -13,6 +13,7 @@ const p = (latitude: number, longitude: number, capturedAt = new Date()) => ({
   capturedAt,
 });
 describe("distance", () => {
+  afterEach(() => vi.unstubAllGlobals());
   it("returns zero for identical points", () =>
     expect(haversineKm(p(17, 78), p(17, 78))).toBe(0));
   it("calculates a known great-circle distance", () =>
@@ -47,6 +48,27 @@ describe("distance", () => {
         activities: [{ location: visit }],
       }),
     ).toEqual([start, sample, visit]);
+  });
+  it("sorts route samples by capture time rather than insertion order", () => {
+    const start = p(1, 1, new Date("2026-08-01T09:00:00Z")),
+      visit = p(2, 2, new Date("2026-08-01T12:00:00Z")),
+      end = p(3, 3, new Date("2026-08-01T18:00:00Z"));
+
+    expect(
+      dayRoutePoints({
+        startLocation: start,
+        routeSamples: [end, start, visit],
+        activities: [{ location: visit }],
+      }),
+    ).toEqual([start, visit, end]);
+  });
+  it("falls back to Haversine distance when road routing is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const result = await routeDistance([p(0, 0), p(0, 1)]);
+
+    expect(result.km).toBeCloseTo(111.2, 1);
+    expect(result.source).toBe("Haversine fallback");
   });
   it("returns a zero live estimate before the first travel segment", async () => {
     const location = p(1, 1),

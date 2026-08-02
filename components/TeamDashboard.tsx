@@ -61,6 +61,7 @@ export default function TeamDashboard({ name }: { name: string }) {
       days: [],
     }),
     [q, setQ] = useState(""),
+    [associateId, setAssociateId] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [month, setMonth] = useState(new Date().toISOString().slice(0, 7)),
@@ -75,11 +76,12 @@ export default function TeamDashboard({ name }: { name: string }) {
   const load = useCallback(async () => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
+    if (associateId) params.set("associateId", associateId);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     const res = await fetch(`/api/team?${params}`);
     setData(await res.json());
-  }, [q, from, to]);
+  }, [q, associateId, from, to]);
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
@@ -88,6 +90,12 @@ export default function TeamDashboard({ name }: { name: string }) {
     const today = todayValue();
     setFrom(today);
     setTo(today);
+  }
+  function clearFilters() {
+    setQ("");
+    setAssociateId("");
+    setFrom("");
+    setTo("");
   }
   async function openHistory(associateId: string) {
     setHistoryOpen(true);
@@ -178,7 +186,7 @@ export default function TeamDashboard({ name }: { name: string }) {
           <span className="eyebrow">Associates</span>
           <div className="metric-value">{data.associates.length}</div>
           <span className="muted" style={{ fontSize: 12 }}>
-            in this view
+            direct reports
           </span>
         </div>
         <div className="card metric">
@@ -204,6 +212,25 @@ export default function TeamDashboard({ name }: { name: string }) {
           style={{ borderBottom: "1px solid var(--line)" }}
         >
           <div className="filters">
+            <div className="field">
+              <label htmlFor="associate-filter">Associate</label>
+              <select
+                className="input"
+                id="associate-filter"
+                value={associateId}
+                onChange={(event) => {
+                  setAssociateId(event.target.value);
+                  if (event.target.value) setQ("");
+                }}
+              >
+                <option value="">All associates</option>
+                {data.associates.map((associate) => (
+                  <option key={associate._id} value={associate._id}>
+                    {associate.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="field" style={{ flex: 1, minWidth: 220 }}>
               <label>Find an associate</label>
               <div style={{ position: "relative" }}>
@@ -221,7 +248,10 @@ export default function TeamDashboard({ name }: { name: string }) {
                   style={{ paddingLeft: 36 }}
                   placeholder="Search by name"
                   value={q}
-                  onChange={(e) => setQ(e.target.value)}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    if (e.target.value) setAssociateId("");
+                  }}
                 />
               </div>
             </div>
@@ -251,6 +281,15 @@ export default function TeamDashboard({ name }: { name: string }) {
             >
               <CalendarDays size={15} />
               Today
+            </button>
+            <button
+              type="button"
+              className="btn btn-plain"
+              onClick={clearFilters}
+              disabled={!q && !associateId && !from && !to}
+            >
+              <X size={15} />
+              Clear
             </button>
           </div>
         </div>
