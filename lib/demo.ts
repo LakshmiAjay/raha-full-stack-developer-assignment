@@ -2,6 +2,7 @@ import type {
   ApprovalStatus,
   ApprovalType,
   LocationPoint,
+  NotificationType,
   RouteCoordinate,
 } from "./types";
 export const demoEnabled = () => !process.env.MONGODB_URI;
@@ -189,9 +190,22 @@ export type DemoApproval = {
   decidedAt?: Date;
   decisionNote?: string;
 };
+export type DemoNotification = {
+  _id: string;
+  type: NotificationType;
+  recipientId: string;
+  actorId: string;
+  actorName: string;
+  branchId: string;
+  dayId: string;
+  sessionNumber: number;
+  createdAt: Date;
+  readAt?: Date;
+};
 const state = globalThis as typeof globalThis & {
   rahaDemoDays?: DemoDay[];
   rahaDemoApprovals?: DemoApproval[];
+  rahaDemoNotifications?: DemoNotification[];
   rahaDemoPolicy?: {
     managerId: string;
     branchId: string;
@@ -215,6 +229,8 @@ export const demoId = () =>
     .slice(0, 24);
 export const demoApprovals = () =>
   state.rahaDemoApprovals ?? (state.rahaDemoApprovals = []);
+export const demoNotifications = () =>
+  state.rahaDemoNotifications ?? (state.rahaDemoNotifications = []);
 export const demoPolicy = () =>
   state.rahaDemoPolicy ??
   (state.rahaDemoPolicy = {

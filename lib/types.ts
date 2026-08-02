@@ -1,5 +1,18 @@
 import type { ObjectId } from "mongodb";
 export type Role = "associate" | "head";
+export type NotificationType = "session_started" | "session_ended";
+export type SessionNotification = {
+  _id: ObjectId;
+  type: NotificationType;
+  recipientId: ObjectId;
+  actorId: ObjectId;
+  actorName: string;
+  branchId: ObjectId;
+  dayId: ObjectId;
+  sessionNumber: number;
+  createdAt: Date;
+  readAt?: Date;
+};
 export type ApprovalType =
   | "lead_creation"
   | "holiday_work"

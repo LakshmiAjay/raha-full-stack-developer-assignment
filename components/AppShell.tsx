@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import NotificationBell from "@/components/NotificationBell";
 export default function AppShell({
   name,
   role,
@@ -31,9 +32,12 @@ export default function AppShell({
         <div className="brand">
           <span className="brandmark">R</span> Raha Fielddesk
         </div>
-        <button className="btn btn-plain" onClick={logout}>
-          <LogOut size={15} /> Sign out
-        </button>
+        <div className="topbar-actions">
+          {role === "head" && <NotificationBell />}
+          <button className="btn btn-plain" onClick={logout}>
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
       </header>
       <div className="layout">
         <aside className="sidebar">

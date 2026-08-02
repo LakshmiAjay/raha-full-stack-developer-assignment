@@ -12,6 +12,7 @@ import {
   hasApproval,
   policyForAssociate,
 } from "@/lib/approvals";
+import { createSessionNotification } from "@/lib/notifications";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -116,6 +117,16 @@ export async function POST(request: Request) {
       };
       demoDays().push(day);
       logCapturedLocation("day-start", s.userId, body.location);
+      await createSessionNotification({
+        type: "session_started",
+        recipientId: policy.managerId,
+        actorId: s.userId,
+        actorName: s.name,
+        branchId: s.branchId,
+        dayId: day._id,
+        sessionNumber,
+        createdAt: now,
+      });
       return NextResponse.json(
         { _id: day._id, sessionNumber },
         { status: 201 },
@@ -161,6 +172,16 @@ export async function POST(request: Request) {
       activities: [],
     });
     logCapturedLocation("day-start", s.userId, body.location);
+    await createSessionNotification({
+      type: "session_started",
+      recipientId: policy.managerId,
+      actorId: s.userId,
+      actorName: s.name,
+      branchId: s.branchId,
+      dayId: String(result.insertedId),
+      sessionNumber,
+      createdAt: now,
+    });
     return NextResponse.json(
       { _id: result.insertedId, sessionNumber },
       { status: 201 },
