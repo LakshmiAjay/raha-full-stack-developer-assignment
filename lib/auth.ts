@@ -5,10 +5,12 @@ import type { Role, User } from "./types";
 import { db } from "./db";
 import { demoEnabled, demoUser } from "./demo";
 const COOKIE = "raha_session";
-const secret = () =>
-  new TextEncoder().encode(
-    process.env.AUTH_SECRET || "dev-only-secret-change-this-before-production",
-  );
+const secret = () => {
+  const value = process.env.AUTH_SECRET;
+  if (!value || value.length < 32)
+    throw new Error("AUTH_SECRET must be configured with at least 32 characters");
+  return new TextEncoder().encode(value);
+};
 export type Session = {
   userId: string;
   role: Role;

@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       .toArray()) as typeof rows;
   }
   const csv = [
-    "Associate,Email,Days worked,Distance (km)",
+    "Associate,Email,Sessions worked,Distance (km)",
     ...rows.map((r) =>
       [r.name, r.email, r.daysWorked, r.distanceKm]
         .map((v) => `"${String(v).replaceAll('"', '""')}"`)

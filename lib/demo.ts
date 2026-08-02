@@ -1,7 +1,24 @@
-import type { LocationPoint } from "./types";
+import type {
+  ApprovalStatus,
+  ApprovalType,
+  LocationPoint,
+  NotificationType,
+  RouteCoordinate,
+} from "./types";
+import { defaultUserPassword } from "./password";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
-export const demoUsers = [
+type DemoUser = {
+  _id: string;
+  name: string;
+  email: string;
+  role: "associate" | "head";
+  branchId: string;
+  managerId?: string;
+  createdAt?: Date;
+  passwordChangedAt?: Date;
+};
+export const demoUsers: DemoUser[] = [
   {
     _id: "64b000000000000000000011",
     name: "Meera Iyer",
@@ -76,6 +93,8 @@ export type DemoActivity = {
   leadId: string;
   leadName: string;
   notes: string;
+  leadLocation?: { latitude: number; longitude: number };
+  leadLocationDistanceMeters?: number;
   location: LocationPoint;
   createdAt: Date;
 };
@@ -84,11 +103,22 @@ export type DemoDay = {
   userId: string;
   branchId: string;
   localDate: string;
+  sessionNumber?: number;
   timezone: string;
   status: "active" | "completed";
   startedAt: Date;
   startLocation: LocationPoint;
+  routeSamples?: LocationPoint[];
+  routePath?: RouteCoordinate[];
   activities: DemoActivity[];
+  breaks?: {
+    _id: string;
+    startedAt: Date;
+    plannedMinutes: number;
+    autoEndsAt: Date;
+    endedAt?: Date;
+    durationMinutes?: number;
+  }[];
   endedAt?: Date;
   endLocation?: LocationPoint;
   totalDistanceKm?: number;
@@ -125,16 +155,24 @@ function history(): DemoDay[] {
         localDate: new Intl.DateTimeFormat("en-CA", {
           timeZone: "Asia/Kolkata",
         }).format(date),
+        sessionNumber: 1,
         timezone: "Asia/Kolkata",
         status: "completed",
         startedAt: p(9, 17.4504, 78.3808).capturedAt,
         startLocation: p(9, 17.4504, 78.3808),
+        routeSamples: [
+          p(9, 17.4504, 78.3808),
+          p(12, lead.location.latitude, lead.location.longitude),
+          p(18, 17.4504, 78.3808),
+        ],
         activities: [
           {
             _id: `64d${u}${d}`.padEnd(24, "0"),
             leadId: lead._id,
             leadName: lead.name,
             notes: "Discussed renewal and next month’s requirement.",
+            leadLocation: { ...lead.location },
+            leadLocationDistanceMeters: 0,
             location: p(12, lead.location.latitude, lead.location.longitude),
             createdAt: p(12, lead.location.latitude, lead.location.longitude)
               .capturedAt,
@@ -148,12 +186,78 @@ function history(): DemoDay[] {
     }
   return rows;
 }
-const state = globalThis as typeof globalThis & { rahaDemoDays?: DemoDay[] };
+export type DemoApproval = {
+  _id: string;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  userId: string;
+  managerId: string;
+  branchId: string;
+  requestedDate?: string;
+  requestedTime?: string;
+  reason: string;
+  payload?: Record<string, unknown>;
+  createdAt: Date;
+  decidedAt?: Date;
+  decisionNote?: string;
+};
+export type DemoNotification = {
+  _id: string;
+  type: NotificationType;
+  recipientId: string;
+  actorId: string;
+  actorName: string;
+  branchId: string;
+  dayId: string;
+  sessionNumber: number;
+  createdAt: Date;
+  readAt?: Date;
+};
+const state = globalThis as typeof globalThis & {
+  rahaDemoDays?: DemoDay[];
+  rahaDemoApprovals?: DemoApproval[];
+  rahaDemoNotifications?: DemoNotification[];
+  rahaDemoPasswords?: Map<string, string>;
+  rahaDemoPolicy?: {
+    managerId: string;
+    branchId: string;
+    timezone: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+    saturdayHoliday: boolean;
+    sundayHoliday: boolean;
+    holidays: { date: string; name: string }[];
+    updatedAt: Date;
+  };
+};
 export const demoDays = () =>
   state.rahaDemoDays ?? (state.rahaDemoDays = history());
 export const demoUser = (id: string) => demoUsers.find((u) => u._id === id);
+export const demoPassword = (id: string) =>
+  (state.rahaDemoPasswords ??= new Map()).get(id) ?? defaultUserPassword();
+export const setDemoPassword = (id: string, password: string) =>
+  (state.rahaDemoPasswords ??= new Map()).set(id, password);
 export const demoId = () =>
   Math.floor(Date.now() / 1000)
     .toString(16)
     .padEnd(24, "0")
     .slice(0, 24);
+export const demoApprovals = () =>
+  state.rahaDemoApprovals ?? (state.rahaDemoApprovals = []);
+export const demoNotifications = () =>
+  state.rahaDemoNotifications ?? (state.rahaDemoNotifications = []);
+export const demoPolicy = () =>
+  state.rahaDemoPolicy ??
+  (state.rahaDemoPolicy = {
+    managerId: demoUsers[0]._id,
+    branchId: demoBranchId,
+    timezone: "Asia/Kolkata",
+    startTime: "09:00",
+    endTime: "18:00",
+    breakMinutes: 60,
+    saturdayHoliday: false,
+    sundayHoliday: false,
+    holidays: [],
+    updatedAt: new Date(),
+  });

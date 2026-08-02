@@ -4,14 +4,15 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get("raha_session")?.value;
   if (!token) return NextResponse.redirect(new URL("/", request.url));
   try {
-    const secret = new TextEncoder().encode(
-        process.env.AUTH_SECRET ||
-          "dev-only-secret-change-this-before-production",
-      ),
+    const authSecret = process.env.AUTH_SECRET;
+    if (!authSecret || authSecret.length < 32)
+      throw new Error("AUTH_SECRET is not securely configured");
+    const secret = new TextEncoder().encode(authSecret),
       { payload } = await jwtVerify(token, secret),
       path = request.nextUrl.pathname;
     if (
-      (path.startsWith("/team") && payload.role !== "head") ||
+      ((path.startsWith("/team") || path.startsWith("/users")) &&
+        payload.role !== "head") ||
       ((path.startsWith("/today") || path.startsWith("/travel")) &&
         payload.role !== "associate")
     )
@@ -24,5 +25,11 @@ export async function middleware(request: NextRequest) {
   }
 }
 export const config = {
-  matcher: ["/today/:path*", "/travel/:path*", "/team/:path*"],
+  matcher: [
+    "/today/:path*",
+    "/travel/:path*",
+    "/team/:path*",
+    "/users/:path*",
+    "/approvals/:path*",
+  ],
 };

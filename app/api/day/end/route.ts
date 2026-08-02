@@ -1,12 +1,21 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { routeDistance } from "@/lib/distance";
+import { dayRoutePoints, routeDetails } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
-import type { DaySession, LocationPoint } from "@/lib/types";
+import { logCapturedLocation } from "@/lib/location";
+import type { DaySession } from "@/lib/types";
 import { endDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled } from "@/lib/demo";
+import {
+  dateAndTimeInZone,
+  ensurePendingApproval,
+  hasApproval,
+  policyForAssociate,
+} from "@/lib/approvals";
+import { effectiveActiveBreak } from "@/lib/breaks";
+import { createSessionNotification } from "@/lib/notifications";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -16,7 +25,32 @@ export async function POST(request: Request) {
         ...body.location,
         capturedAt: new Date(body.location.capturedAt),
       },
-      endedAt = new Date();
+      endedAt = new Date(),
+      policy = await policyForAssociate(s.userId, s.branchId),
+      policyNow = dateAndTimeInZone(endedAt, policy.timezone);
+    if (
+      (policyNow.time < policy.startTime || policyNow.time > policy.endTime) &&
+      !(await hasApproval(s.userId, "session_end", policyNow.date))
+    ) {
+      const reason = `Ending outside ${policy.startTime}–${policy.endTime} requires manager approval`;
+      await ensurePendingApproval({
+        userId: s.userId,
+        branchId: s.branchId,
+        managerId: policy.managerId,
+        type: "session_end",
+        requestedDate: policyNow.date,
+        requestedTime: policyNow.time,
+        reason,
+      });
+      return NextResponse.json(
+        {
+          error: `${reason}. A request has been sent to your manager.`,
+          approvalRequired: true,
+          approvalType: "session_end",
+        },
+        { status: 403 },
+      );
+    }
     if (demoEnabled()) {
       const day = demoDays().find(
         (d) => d.userId === s.userId && d.status === "active",
@@ -26,18 +60,31 @@ export async function POST(request: Request) {
           { error: "There is no active workday to end" },
           { status: 409 },
         );
-      const points = [
-          day.startLocation,
-          ...day.activities.map((a) => a.location),
-          endLocation,
-        ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime()),
-        distance = await routeDistance(points);
+      if (effectiveActiveBreak(day))
+        return NextResponse.json(
+          { error: "End your break before ending the day" },
+          { status: 409 },
+        );
+      const distance = await routeDetails(dayRoutePoints(day, endLocation));
       Object.assign(day, {
         status: "completed",
         endedAt,
         endLocation,
         totalDistanceKm: distance.km,
         distanceSource: distance.source,
+        routePath: distance.path,
+      });
+      (day.routeSamples ??= [day.startLocation]).push(endLocation);
+      logCapturedLocation("day-end", s.userId, endLocation);
+      await createSessionNotification({
+        type: "session_ended",
+        recipientId: policy.managerId,
+        actorId: s.userId,
+        actorName: s.name,
+        branchId: s.branchId,
+        dayId: day._id,
+        sessionNumber: day.sessionNumber ?? 1,
+        createdAt: endedAt,
       });
       return NextResponse.json({
         totalDistanceKm: distance.km,
@@ -53,13 +100,13 @@ export async function POST(request: Request) {
         { error: "There is no active workday to end" },
         { status: 409 },
       );
-    const points: LocationPoint[] = [
-        day.startLocation,
-        ...day.activities.map((a) => a.location),
-        endLocation,
-      ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime()),
-      distance = await routeDistance(points);
-    await database.collection("days").updateOne(
+    if (effectiveActiveBreak(day))
+      return NextResponse.json(
+        { error: "End your break before ending the day" },
+        { status: 409 },
+      );
+    const distance = await routeDetails(dayRoutePoints(day, endLocation));
+    const update = await database.collection("days").updateOne(
       { _id: day._id, status: "active" },
       {
         $set: {
@@ -68,9 +115,27 @@ export async function POST(request: Request) {
           endLocation,
           totalDistanceKm: distance.km,
           distanceSource: distance.source,
+          routePath: distance.path,
         },
+        $push: { routeSamples: endLocation } as never,
       },
     );
+    if (!update.modifiedCount)
+      return NextResponse.json(
+        { error: "This workday has already ended" },
+        { status: 409 },
+      );
+    logCapturedLocation("day-end", s.userId, endLocation);
+    await createSessionNotification({
+      type: "session_ended",
+      recipientId: policy.managerId,
+      actorId: s.userId,
+      actorName: s.name,
+      branchId: s.branchId,
+      dayId: String(day._id),
+      sessionNumber: day.sessionNumber ?? 1,
+      createdAt: endedAt,
+    });
     return NextResponse.json({
       totalDistanceKm: distance.km,
       distanceSource: distance.source,
