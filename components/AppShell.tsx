@@ -152,7 +152,7 @@ export default function AppShell({
             )}
           </nav>
           <div className="side-note">
-            <strong style={{ color: "var(--ink)" }}>{name}</strong>
+            <strong style={{ color: "var(--primary)" }}>{name}</strong>
             <br />
             {role === "head" ? "Branch head" : "Sales associate"}
             <br />

@@ -530,7 +530,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                       : "Ready when you are"}
                 </div>
               </div>
-              <Navigation size={24} color="var(--red)" />
+              <Navigation size={24} color="var(--accent)" />
             </div>
             <div className="actions">
               {canStart ? (
