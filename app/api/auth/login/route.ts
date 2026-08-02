@@ -5,13 +5,13 @@ import { createSession } from "@/lib/auth";
 import { loginSchema } from "@/lib/validation";
 import { apiError } from "@/lib/http";
 import type { User } from "@/lib/types";
-import { demoEnabled, demoUsers } from "@/lib/demo";
+import { demoEnabled, demoPassword, demoUsers } from "@/lib/demo";
 export async function POST(request: Request) {
   try {
     const body = loginSchema.parse(await request.json());
     if (demoEnabled()) {
       const user = demoUsers.find((u) => u.email === body.email.toLowerCase());
-      if (!user || body.password !== "Raha@123")
+      if (!user || body.password !== demoPassword(user._id))
         return NextResponse.json(
           { error: "Email or password is incorrect" },
           { status: 401 },

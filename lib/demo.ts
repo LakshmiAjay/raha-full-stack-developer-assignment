@@ -5,9 +5,20 @@ import type {
   NotificationType,
   RouteCoordinate,
 } from "./types";
+import { DEFAULT_PASSWORD } from "./password";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
-export const demoUsers = [
+type DemoUser = {
+  _id: string;
+  name: string;
+  email: string;
+  role: "associate" | "head";
+  branchId: string;
+  managerId?: string;
+  createdAt?: Date;
+  passwordChangedAt?: Date;
+};
+export const demoUsers: DemoUser[] = [
   {
     _id: "64b000000000000000000011",
     name: "Meera Iyer",
@@ -206,6 +217,7 @@ const state = globalThis as typeof globalThis & {
   rahaDemoDays?: DemoDay[];
   rahaDemoApprovals?: DemoApproval[];
   rahaDemoNotifications?: DemoNotification[];
+  rahaDemoPasswords?: Map<string, string>;
   rahaDemoPolicy?: {
     managerId: string;
     branchId: string;
@@ -222,6 +234,10 @@ const state = globalThis as typeof globalThis & {
 export const demoDays = () =>
   state.rahaDemoDays ?? (state.rahaDemoDays = history());
 export const demoUser = (id: string) => demoUsers.find((u) => u._id === id);
+export const demoPassword = (id: string) =>
+  (state.rahaDemoPasswords ??= new Map()).get(id) ?? DEFAULT_PASSWORD;
+export const setDemoPassword = (id: string, password: string) =>
+  (state.rahaDemoPasswords ??= new Map()).set(id, password);
 export const demoId = () =>
   Math.floor(Date.now() / 1000)
     .toString(16)

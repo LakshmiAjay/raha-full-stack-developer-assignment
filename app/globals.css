@@ -72,6 +72,88 @@ textarea {
   display: flex;
   gap: 10px;
 }
+.profile-menu-wrap {
+  position: relative;
+}
+.profile-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  gap: 5px;
+  padding: 0;
+}
+.profile-avatar {
+  align-items: center;
+  background: var(--ink);
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line);
+  color: white;
+  display: flex;
+  font-size: 15px;
+  font-weight: 800;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.profile-trigger:hover .profile-avatar,
+.profile-trigger:focus-visible .profile-avatar {
+  background: var(--green);
+}
+.profile-trigger:focus-visible {
+  outline: 0;
+}
+.profile-menu {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 45px rgba(11, 25, 22, 0.18);
+  min-width: 220px;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 35;
+}
+.profile-menu-head {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 16px;
+}
+.profile-menu-head strong {
+  font-size: 13px;
+}
+.profile-menu-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.profile-menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 10px;
+  padding: 12px 16px;
+  text-align: left;
+  width: 100%;
+}
+.profile-menu-item:hover,
+.profile-menu-item:focus-visible {
+  background: #eee9df;
+  outline: 0;
+}
+.profile-menu-item.danger {
+  color: var(--red);
+}
 .notification-center {
   position: relative;
 }
@@ -605,6 +687,11 @@ textarea {
   background: #e8e4da;
   color: var(--ink);
 }
+.btn-compact {
+  min-height: auto;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
 .section-title {
   font-size: 15px;
   margin: 0;
@@ -709,6 +796,56 @@ textarea.input {
   background: #f8e4df;
   color: #8c3023;
   margin: 12px 0;
+}
+.notice-success {
+  background: #dff0e8;
+  color: var(--green);
+}
+.account-modal {
+  max-width: 480px;
+}
+.account-modal h2 {
+  font: 400 30px var(--font-serif);
+  margin: 7px 0 0;
+}
+.account-copy {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+.password-reveal {
+  align-items: center;
+  background: #f0ece3;
+  border: 1px dashed #b9b3a7;
+  border-radius: 9px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 18px 0;
+  padding: 12px;
+}
+.password-reveal code {
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.user-list-head {
+  border-bottom: 1px solid var(--line);
+}
+.user-list-head .section-title {
+  margin-top: 7px;
+}
+.default-password-note {
+  font-size: 12px;
+  margin: 9px 0 0;
+}
+.default-password-note strong {
+  color: var(--ink);
 }
 .notice-link {
   color: inherit;
@@ -1223,6 +1360,9 @@ textarea.input {
   }
   .topbar {
     height: 62px;
+  }
+  .desktop-label {
+    display: none;
   }
   .page-head {
     align-items: start;

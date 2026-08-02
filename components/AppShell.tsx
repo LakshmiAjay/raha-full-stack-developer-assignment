@@ -1,15 +1,19 @@
 "use client";
 import {
   CalendarDays,
+  ChevronDown,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Route,
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/NotificationBell";
+import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 export default function AppShell({
   name,
   role,
@@ -20,8 +24,30 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const path = usePathname(),
-    router = useRouter();
+    router = useRouter(),
+    [profileOpen, setProfileOpen] = useState(false),
+    [passwordOpen, setPasswordOpen] = useState(false),
+    profileRef = useRef<HTMLDivElement>(null),
+    initial = name.trim().charAt(0).toUpperCase() || "U";
+
+  useEffect(() => {
+    function closeProfile(event: MouseEvent) {
+      if (!profileRef.current?.contains(event.target as Node))
+        setProfileOpen(false);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", closeProfile);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeProfile);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
   async function logout() {
+    setProfileOpen(false);
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/");
     router.refresh();
@@ -34,9 +60,47 @@ export default function AppShell({
         </div>
         <div className="topbar-actions">
           {role === "head" && <NotificationBell />}
-          <button className="btn btn-plain" onClick={logout}>
-            <LogOut size={15} /> Sign out
-          </button>
+          <div className="profile-menu-wrap" ref={profileRef}>
+            <button
+              className="profile-trigger"
+              onClick={() => setProfileOpen((current) => !current)}
+              aria-haspopup="menu"
+              aria-expanded={profileOpen}
+              aria-label={`Open account menu for ${name}`}
+            >
+              <span className="profile-avatar">{initial}</span>
+              <ChevronDown size={14} />
+            </button>
+            {profileOpen && (
+              <div className="profile-menu" role="menu">
+                <div className="profile-menu-head">
+                  <strong>{name}</strong>
+                  <span>{role === "head" ? "Branch head" : "Sales associate"}</span>
+                </div>
+                <button
+                  className="profile-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setPasswordOpen(true);
+                  }}
+                >
+                  <KeyRound size={15} /> Change password
+                </button>
+                <button
+                  className="profile-menu-item danger"
+                  role="menuitem"
+                  onClick={() => void logout()}
+                >
+                  <LogOut size={15} /> Sign out
+                </button>
+              </div>
+            )}
+          </div>
+          <ChangePasswordDialog
+            open={passwordOpen}
+            onClose={() => setPasswordOpen(false)}
+          />
         </div>
       </header>
       <div className="layout">
@@ -78,9 +142,12 @@ export default function AppShell({
                 >
                   <ShieldCheck size={17} /> Approvals
                 </Link>
-                <div className="navitem">
+                <Link
+                  href="/users"
+                  className={`navitem ${path === "/users" ? "active" : ""}`}
+                >
                   <Users size={17} /> Associates
-                </div>
+                </Link>
               </>
             )}
           </nav>

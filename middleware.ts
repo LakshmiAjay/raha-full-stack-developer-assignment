@@ -11,7 +11,8 @@ export async function middleware(request: NextRequest) {
       { payload } = await jwtVerify(token, secret),
       path = request.nextUrl.pathname;
     if (
-      (path.startsWith("/team") && payload.role !== "head") ||
+      ((path.startsWith("/team") || path.startsWith("/users")) &&
+        payload.role !== "head") ||
       ((path.startsWith("/today") || path.startsWith("/travel")) &&
         payload.role !== "associate")
     )
@@ -28,6 +29,7 @@ export const config = {
     "/today/:path*",
     "/travel/:path*",
     "/team/:path*",
+    "/users/:path*",
     "/approvals/:path*",
   ],
 };
