@@ -3,14 +3,23 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BriefcaseBusiness,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   Download,
+  Map,
   MapPin,
   Search,
   Users,
   X,
 } from "lucide-react";
+import RouteMap from "@/components/RouteMap";
 type Associate = { _id: string; name: string };
-type Loc = { accuracy: number };
+type Loc = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  capturedAt: string;
+};
 type Activity = {
   _id: string;
   leadName: string;
@@ -24,11 +33,14 @@ type Day = {
   userId: string;
   associateName: string;
   localDate: string;
+  sessionNumber?: number;
   status: "active" | "completed";
   startedAt: string;
   endedAt?: string;
   startLocation: Loc;
   endLocation?: Loc;
+  routeSamples?: Loc[];
+  routePath?: { latitude: number; longitude: number }[];
   activities: Activity[];
   totalDistanceKm?: number;
 };
@@ -55,7 +67,11 @@ export default function TeamDashboard({ name }: { name: string }) {
     [history, setHistory] = useState<HistoryData | null>(null),
     [historyOpen, setHistoryOpen] = useState(false),
     [historyLoading, setHistoryLoading] = useState(false),
-    [historyError, setHistoryError] = useState("");
+    [historyError, setHistoryError] = useState(""),
+    [expandedRouteId, setExpandedRouteId] = useState<string | null>(null),
+    [routeDays, setRouteDays] = useState<Record<string, Day>>({}),
+    [routeLoadingId, setRouteLoadingId] = useState<string | null>(null),
+    [routeErrors, setRouteErrors] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
@@ -77,6 +93,9 @@ export default function TeamDashboard({ name }: { name: string }) {
     setHistoryOpen(true);
     setHistory(null);
     setHistoryError("");
+    setExpandedRouteId(null);
+    setRouteDays({});
+    setRouteErrors({});
     setHistoryLoading(true);
     try {
       const params = new URLSearchParams({ associateId }),
@@ -93,6 +112,35 @@ export default function TeamDashboard({ name }: { name: string }) {
       );
     } finally {
       setHistoryLoading(false);
+    }
+  }
+  async function toggleRoute(day: Day) {
+    if (expandedRouteId === day._id) {
+      setExpandedRouteId(null);
+      return;
+    }
+    setExpandedRouteId(day._id);
+    if (routeDays[day._id]) return;
+    setRouteLoadingId(day._id);
+    setRouteErrors((current) => ({ ...current, [day._id]: "" }));
+    try {
+      const response = await fetch(`/api/team/history/${day._id}`, {
+          cache: "no-store",
+        }),
+        json = await response.json();
+      if (!response.ok)
+        throw new Error(json.error || "Could not load this session route");
+      setRouteDays((current) => ({ ...current, [day._id]: json }));
+    } catch (routeError) {
+      setRouteErrors((current) => ({
+        ...current,
+        [day._id]:
+          routeError instanceof Error
+            ? routeError.message
+            : "Could not load this session route",
+      }));
+    } finally {
+      setRouteLoadingId(null);
     }
   }
   const formatTime = (value: string) =>
@@ -235,6 +283,9 @@ export default function TeamDashboard({ name }: { name: string }) {
                         "en-IN",
                         { day: "numeric", month: "short", year: "numeric" },
                       )}
+                      <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>
+                        Session {d.sessionNumber ?? 1}
+                      </div>
                     </td>
                     <td>
                       {d.activities.length}
@@ -313,14 +364,63 @@ export default function TeamDashboard({ name }: { name: string }) {
                           })}
                         </strong>
                         <div className="muted history-summary">
-                          {day.activities.length} visit
+                          Session {day.sessionNumber ?? 1} · {day.activities.length} visit
                           {day.activities.length === 1 ? "" : "s"} ·{" "}
                           {day.totalDistanceKm?.toFixed(1) ?? "—"} km
                           {day.status === "active" ? " live estimate" : ""}
                         </div>
                       </div>
-                      <span className="pill">{day.status}</span>
+                      <div className="history-day-actions">
+                        <span className="pill">{day.status}</span>
+                        <button
+                          className="route-history-button"
+                          onClick={() => void toggleRoute(day)}
+                          type="button"
+                        >
+                          <Map size={14} />
+                          {expandedRouteId === day._id
+                            ? "Hide route"
+                            : "View route"}
+                          {expandedRouteId === day._id ? (
+                            <ChevronUp size={13} />
+                          ) : (
+                            <ChevronDown size={13} />
+                          )}
+                        </button>
+                      </div>
                     </div>
+                    {expandedRouteId === day._id && (
+                      <div className="manager-session-route">
+                        {routeLoadingId === day._id ? (
+                          <div className="manager-route-loading">
+                            <Map size={22} /> Preparing saved road path…
+                          </div>
+                        ) : routeErrors[day._id] ? (
+                          <div className="notice">{routeErrors[day._id]}</div>
+                        ) : routeDays[day._id] ? (
+                          <RouteMap
+                            active={routeDays[day._id].status === "active"}
+                            pathPoints={routeDays[day._id].routePath}
+                            routePoints={
+                              routeDays[day._id].routeSamples?.length
+                                ? routeDays[day._id].routeSamples!
+                                : [
+                                    routeDays[day._id].startLocation,
+                                    ...routeDays[day._id].activities.map(
+                                      (activity) => activity.location,
+                                    ),
+                                    ...(routeDays[day._id].endLocation
+                                      ? [routeDays[day._id].endLocation!]
+                                      : []),
+                                  ]
+                            }
+                            sessionNumber={day.sessionNumber ?? 1}
+                            tracking={false}
+                            visits={routeDays[day._id].activities}
+                          />
+                        ) : null}
+                      </div>
+                    )}
                     <div className="timeline history-timeline">
                       <div className="event">
                         <div className="event-pin">

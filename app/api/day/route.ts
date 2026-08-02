@@ -22,18 +22,39 @@ export async function GET(request: Request) {
   if (!s) return unauthorized();
   const localDate = localDateInZone(new Date(), requestedTimeZone(request));
   if (demoEnabled()) {
-    const day =
-      demoDays()
-        .filter((d) => d.userId === s.userId && d.localDate === localDate)
-        .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0] ??
-      null;
-    return NextResponse.json(day ? await withLiveDistance(day) : null);
+    const days = demoDays()
+      .filter((day) => day.userId === s.userId && day.localDate === localDate)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    if (!days.length) return NextResponse.json(null);
+    const sessions = await Promise.all(days.map(withLiveDistance));
+    return NextResponse.json({
+      ...sessions[0],
+      sessionsToday: sessions.length,
+      totalDistanceTodayKm:
+        Math.round(
+          sessions.reduce(
+            (total, session) => total + (session.totalDistanceKm ?? 0),
+            0,
+          ) * 10,
+        ) / 10,
+    });
   }
-  const day = await (await db())
+  const days = await (await db())
     .collection<DaySession>("days")
-    .findOne(
-      { userId: new ObjectId(s.userId), localDate },
-      { sort: { startedAt: -1 } },
-    );
-  return NextResponse.json(day ? await withLiveDistance(day) : null);
+    .find({ userId: new ObjectId(s.userId), localDate })
+    .sort({ startedAt: -1 })
+    .toArray();
+  if (!days.length) return NextResponse.json(null);
+  const sessions = await Promise.all(days.map(withLiveDistance));
+  return NextResponse.json({
+    ...sessions[0],
+    sessionsToday: sessions.length,
+    totalDistanceTodayKm:
+      Math.round(
+        sessions.reduce(
+          (total, session) => total + (session.totalDistanceKm ?? 0),
+          0,
+        ) * 10,
+      ) / 10,
+  });
 }

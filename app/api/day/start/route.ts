@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError, unauthorized } from "@/lib/http";
-import { localDateInZone } from "@/lib/location";
+import { localDateInZone, logCapturedLocation } from "@/lib/location";
 import { startDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
@@ -21,11 +21,16 @@ export async function POST(request: Request) {
           { error: "Your workday is already running" },
           { status: 409 },
         );
+      const sessionNumber =
+        demoDays().filter(
+          (day) => day.userId === s.userId && day.localDate === localDate,
+        ).length + 1;
       const day = {
         _id: demoId(),
         userId: s.userId,
         branchId: s.branchId,
         localDate,
+        sessionNumber,
         timezone: body.timezone,
         status: "active" as const,
         startedAt: now,
@@ -33,24 +38,45 @@ export async function POST(request: Request) {
           ...body.location,
           capturedAt: new Date(body.location.capturedAt),
         },
+        routeSamples: [
+          {
+            ...body.location,
+            capturedAt: new Date(body.location.capturedAt),
+          },
+        ],
+        routePath: [
+          {
+            latitude: body.location.latitude,
+            longitude: body.location.longitude,
+          },
+        ],
         activities: [],
       };
       demoDays().push(day);
-      return NextResponse.json({ _id: day._id }, { status: 201 });
+      logCapturedLocation("day-start", s.userId, body.location);
+      return NextResponse.json(
+        { _id: day._id, sessionNumber },
+        { status: 201 },
+      );
     }
     const database = await db(),
+      userId = new ObjectId(s.userId),
       active = await database
         .collection("days")
-        .findOne({ userId: new ObjectId(s.userId), status: "active" });
+        .findOne({ userId, status: "active" });
     if (active)
       return NextResponse.json(
         { error: "Your workday is already running" },
         { status: 409 },
       );
+    const sessionNumber =
+      (await database.collection("days").countDocuments({ userId, localDate })) +
+      1;
     const result = await database.collection("days").insertOne({
-      userId: new ObjectId(s.userId),
+      userId,
       branchId: new ObjectId(s.branchId),
       localDate,
+      sessionNumber,
       timezone: body.timezone,
       status: "active",
       startedAt: now,
@@ -58,9 +84,25 @@ export async function POST(request: Request) {
         ...body.location,
         capturedAt: new Date(body.location.capturedAt),
       },
+      routeSamples: [
+        {
+          ...body.location,
+          capturedAt: new Date(body.location.capturedAt),
+        },
+      ],
+      routePath: [
+        {
+          latitude: body.location.latitude,
+          longitude: body.location.longitude,
+        },
+      ],
       activities: [],
     });
-    return NextResponse.json({ _id: result.insertedId }, { status: 201 });
+    logCapturedLocation("day-start", s.userId, body.location);
+    return NextResponse.json(
+      { _id: result.insertedId, sessionNumber },
+      { status: 201 },
+    );
   } catch (e) {
     return apiError(e);
   }

@@ -1,4 +1,4 @@
-import type { LocationPoint } from "./types";
+import type { LocationPoint, RouteCoordinate } from "./types";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
 export const demoUsers = [
@@ -86,10 +86,13 @@ export type DemoDay = {
   userId: string;
   branchId: string;
   localDate: string;
+  sessionNumber?: number;
   timezone: string;
   status: "active" | "completed";
   startedAt: Date;
   startLocation: LocationPoint;
+  routeSamples?: LocationPoint[];
+  routePath?: RouteCoordinate[];
   activities: DemoActivity[];
   endedAt?: Date;
   endLocation?: LocationPoint;
@@ -127,10 +130,16 @@ function history(): DemoDay[] {
         localDate: new Intl.DateTimeFormat("en-CA", {
           timeZone: "Asia/Kolkata",
         }).format(date),
+        sessionNumber: 1,
         timezone: "Asia/Kolkata",
         status: "completed",
         startedAt: p(9, 17.4504, 78.3808).capturedAt,
         startLocation: p(9, 17.4504, 78.3808),
+        routeSamples: [
+          p(9, 17.4504, 78.3808),
+          p(12, lead.location.latitude, lead.location.longitude),
+          p(18, 17.4504, 78.3808),
+        ],
         activities: [
           {
             _id: `64d${u}${d}`.padEnd(24, "0"),

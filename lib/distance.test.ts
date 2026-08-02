@@ -35,6 +35,19 @@ describe("distance", () => {
     expect(dayRoutePoints(day)).toEqual([start, visit]);
     expect(dayRoutePoints(day, end)).toEqual([start, visit, end]);
   });
+  it("uses route samples instead of connecting only activity stops", () => {
+    const start = p(1, 1, new Date("2026-08-01T09:00:00Z")),
+      sample = p(1.5, 1.5, new Date("2026-08-01T10:00:00Z")),
+      visit = p(2, 2, new Date("2026-08-01T12:00:00Z"));
+
+    expect(
+      dayRoutePoints({
+        startLocation: start,
+        routeSamples: [start, sample, visit],
+        activities: [{ location: visit }],
+      }),
+    ).toEqual([start, sample, visit]);
+  });
   it("returns a zero live estimate before the first travel segment", async () => {
     const location = p(1, 1),
       day = {

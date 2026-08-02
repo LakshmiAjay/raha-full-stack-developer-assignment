@@ -6,6 +6,7 @@ export type LocationPoint = {
   accuracy: number;
   capturedAt: Date;
 };
+export type RouteCoordinate = Pick<LocationPoint, "latitude" | "longitude">;
 export type User = {
   _id: ObjectId;
   name: string;
@@ -37,10 +38,13 @@ export type DaySession = {
   userId: ObjectId;
   branchId: ObjectId;
   localDate: string;
+  sessionNumber?: number;
   timezone: string;
   status: "active" | "completed";
   startedAt: Date;
   startLocation: LocationPoint;
+  routeSamples?: LocationPoint[];
+  routePath?: RouteCoordinate[];
   activities: Activity[];
   endedAt?: Date;
   endLocation?: LocationPoint;

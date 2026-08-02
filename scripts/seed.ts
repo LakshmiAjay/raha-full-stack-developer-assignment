@@ -119,10 +119,17 @@ async function main() {
         userId: associateIds[u],
         branchId,
         localDate,
+        sessionNumber: 1,
         timezone: "Asia/Kolkata",
         status: "completed",
         startedAt: p(17.4504, 78.3808, 9).capturedAt,
         startLocation: p(17.4504, 78.3808, 9),
+        routeSamples: [
+          p(17.4504, 78.3808, 9),
+          p(a.location.latitude, a.location.longitude, 11),
+          p(b.location.latitude, b.location.longitude, 15),
+          p(17.4504, 78.3808, 18),
+        ],
         activities: [
           {
             _id: new ObjectId(),

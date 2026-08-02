@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { straightLineDistanceMeters } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
+import { logCapturedLocation } from "@/lib/location";
 import { activitySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
         createdAt: new Date(),
       };
       day.activities.push(activity);
+      (day.routeSamples ??= [day.startLocation]).push(activity.location);
+      logCapturedLocation("visit-logged", s.userId, body.location);
       return NextResponse.json(activity, { status: 201 });
     }
     const database = await db(),
@@ -80,13 +83,19 @@ export async function POST(request: Request) {
       .collection("days")
       .updateOne(
         { userId: new ObjectId(s.userId), status: "active" },
-        { $push: { activities: activity } as never },
+        {
+          $push: {
+            activities: activity,
+            routeSamples: activity.location,
+          } as never,
+        },
       );
     if (!result.modifiedCount)
       return NextResponse.json(
         { error: "Start your day before logging an activity" },
         { status: 409 },
       );
+    logCapturedLocation("visit-logged", s.userId, body.location);
     return NextResponse.json(activity, { status: 201 });
   } catch (e) {
     return apiError(e);
