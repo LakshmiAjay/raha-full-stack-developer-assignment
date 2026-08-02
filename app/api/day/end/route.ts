@@ -8,6 +8,12 @@ import { endDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled } from "@/lib/demo";
+import {
+  dateAndTimeInZone,
+  ensurePendingApproval,
+  hasApproval,
+  policyForAssociate,
+} from "@/lib/approvals";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -17,7 +23,32 @@ export async function POST(request: Request) {
         ...body.location,
         capturedAt: new Date(body.location.capturedAt),
       },
-      endedAt = new Date();
+      endedAt = new Date(),
+      policy = await policyForAssociate(s.userId, s.branchId),
+      policyNow = dateAndTimeInZone(endedAt, policy.timezone);
+    if (
+      (policyNow.time < policy.startTime || policyNow.time > policy.endTime) &&
+      !(await hasApproval(s.userId, "session_end", policyNow.date))
+    ) {
+      const reason = `Ending outside ${policy.startTime}–${policy.endTime} requires manager approval`;
+      await ensurePendingApproval({
+        userId: s.userId,
+        branchId: s.branchId,
+        managerId: policy.managerId,
+        type: "session_end",
+        requestedDate: policyNow.date,
+        requestedTime: policyNow.time,
+        reason,
+      });
+      return NextResponse.json(
+        {
+          error: `${reason}. A request has been sent to your manager.`,
+          approvalRequired: true,
+          approvalType: "session_end",
+        },
+        { status: 403 },
+      );
+    }
     if (demoEnabled()) {
       const day = demoDays().find(
         (d) => d.userId === s.userId && d.status === "active",
