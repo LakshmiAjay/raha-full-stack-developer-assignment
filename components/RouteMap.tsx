@@ -1,6 +1,12 @@
 "use client";
 
-import { BriefcaseBusiness, LocateFixed, Minus, Plus } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Crosshair,
+  LocateFixed,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Coordinate = { latitude: number; longitude: number };
@@ -58,8 +64,17 @@ export default function RouteMap({
   sessionNumber?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null),
+    dragRef = useRef<{
+      pointerId: number;
+      startX: number;
+      startY: number;
+      panX: number;
+      panY: number;
+    } | null>(null),
     [width, setWidth] = useState(720),
-    [zoomOffset, setZoomOffset] = useState(0);
+    [zoomOffset, setZoomOffset] = useState(0),
+    [pan, setPan] = useState({ x: 0, y: 0 }),
+    [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -70,6 +85,60 @@ export default function RouteMap({
     resize.observe(element);
     return () => resize.disconnect();
   }, []);
+
+  useEffect(() => {
+    setPan({ x: 0, y: 0 });
+  }, [sessionNumber]);
+
+  function startPan(event: React.PointerEvent<HTMLDivElement>) {
+    if (
+      event.button !== 0 ||
+      (event.target as HTMLElement).closest("button, a")
+    )
+      return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragging(true);
+  }
+
+  function movePan(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPan({
+      x: drag.panX + event.clientX - drag.startX,
+      y: drag.panY + event.clientY - drag.startY,
+    });
+  }
+
+  function stopPan(event: React.PointerEvent<HTMLDivElement>) {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    dragRef.current = null;
+    setDragging(false);
+  }
+
+  function keyboardPan(event: React.KeyboardEvent<HTMLDivElement>) {
+    const movement: Record<string, { x: number; y: number }> = {
+        ArrowLeft: { x: 45, y: 0 },
+        ArrowRight: { x: -45, y: 0 },
+        ArrowUp: { x: 0, y: 45 },
+        ArrowDown: { x: 0, y: -45 },
+      },
+      change = movement[event.key];
+    if (!change) return;
+    event.preventDefault();
+    setPan((current) => ({
+      x: current.x + change.x,
+      y: current.y + change.y,
+    }));
+  }
 
   const map = useMemo(() => {
     const recordedPath = pathPoints?.length ? pathPoints : routePoints,
@@ -89,8 +158,8 @@ export default function RouteMap({
       ys = projected.map((point) => point.y),
       centerX = (Math.min(...xs) + Math.max(...xs)) / 2,
       centerY = (Math.min(...ys) + Math.max(...ys)) / 2,
-      originX = centerX - width / 2,
-      originY = centerY - MAP_HEIGHT / 2,
+      originX = centerX - width / 2 - pan.x,
+      originY = centerY - MAP_HEIGHT / 2 - pan.y,
       minTileX = Math.floor(originX / TILE_SIZE),
       maxTileX = Math.floor((originX + width) / TILE_SIZE),
       minTileY = Math.floor(originY / TILE_SIZE),
@@ -136,6 +205,7 @@ export default function RouteMap({
     currentLocation,
     liveTrail,
     pathPoints,
+    pan,
     routePoints,
     visits,
     width,
@@ -173,7 +243,19 @@ export default function RouteMap({
             : `${routePoints.length} route points`}
         </div>
       </div>
-      <div className="route-map" ref={containerRef} style={{ height: MAP_HEIGHT }}>
+      <div
+        aria-label="Interactive route map. Drag to move the map or use the arrow keys."
+        className={`route-map ${dragging ? "dragging" : ""}`}
+        onKeyDown={keyboardPan}
+        onPointerCancel={stopPan}
+        onPointerDown={startPan}
+        onPointerMove={movePan}
+        onPointerUp={stopPan}
+        ref={containerRef}
+        role="region"
+        style={{ height: MAP_HEIGHT }}
+        tabIndex={0}
+      >
         <div className="map-zoom-controls" aria-label="Map zoom controls">
           <button
             className="map-zoom-button"
@@ -194,6 +276,16 @@ export default function RouteMap({
             onClick={() => setZoomOffset((value) => Math.max(-15, value - 1))}
           >
             <Minus size={17} />
+          </button>
+          <button
+            className="map-zoom-button"
+            type="button"
+            aria-label="Recenter map on route"
+            title="Recenter map on route"
+            disabled={pan.x === 0 && pan.y === 0}
+            onClick={() => setPan({ x: 0, y: 0 })}
+          >
+            <Crosshair size={16} />
           </button>
         </div>
         {map.tiles.map((tile) => (

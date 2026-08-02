@@ -224,9 +224,19 @@ textarea {
   background-size: 32px 32px;
   border-bottom: 1px solid var(--line);
   border-top: 1px solid var(--line);
+  cursor: grab;
   overflow: hidden;
   position: relative;
+  touch-action: none;
+  user-select: none;
   width: 100%;
+}
+.route-map.dragging {
+  cursor: grabbing;
+}
+.route-map:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: -2px;
 }
 .route-map > img {
   height: 256px;
@@ -707,6 +717,83 @@ textarea.input {
 .history-link:focus-visible {
   color: var(--red);
 }
+.route-history-button {
+  align-items: center;
+  background: #f2eee5;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+.route-history-button:hover,
+.route-history-button:focus-visible {
+  background: var(--ink);
+  color: white;
+}
+.session-map-modal {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 22px;
+  width: min(920px, 100%);
+}
+.session-map-head {
+  align-items: flex-start;
+}
+.session-map-subtitle {
+  font-size: 12px;
+  margin: 7px 0 0;
+}
+.session-map-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.session-map-summary span {
+  align-items: center;
+  background: #f2eee5;
+  border-radius: 20px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 7px 10px;
+  text-transform: capitalize;
+}
+.session-map-modal .route-map-card {
+  box-shadow: none;
+  margin-top: 16px;
+}
+.session-map-loading {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 260px;
+  justify-content: center;
+}
+.session-map-visits {
+  align-items: flex-start;
+  background: #f7f3ea;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+.session-map-visits span {
+  color: var(--muted);
+  line-height: 1.5;
+}
 .history-modal {
   max-height: min(820px, calc(100vh - 40px));
   overflow: hidden;
@@ -732,6 +819,31 @@ textarea.input {
 }
 .history-day-head {
   align-items: center;
+}
+.history-day-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.manager-session-route {
+  margin-top: 16px;
+}
+.manager-session-route .route-map-card {
+  box-shadow: none;
+  margin-top: 0;
+}
+.manager-route-loading {
+  align-items: center;
+  background: #f7f3ea;
+  border-radius: 10px;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  gap: 9px;
+  justify-content: center;
+  min-height: 170px;
 }
 .history-summary {
   font-size: 12px;
