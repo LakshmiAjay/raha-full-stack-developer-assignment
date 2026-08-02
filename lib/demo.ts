@@ -90,6 +90,7 @@ export type DemoDay = {
   status: "active" | "completed";
   startedAt: Date;
   startLocation: LocationPoint;
+  routeSamples?: LocationPoint[];
   activities: DemoActivity[];
   endedAt?: Date;
   endLocation?: LocationPoint;
@@ -131,6 +132,11 @@ function history(): DemoDay[] {
         status: "completed",
         startedAt: p(9, 17.4504, 78.3808).capturedAt,
         startLocation: p(9, 17.4504, 78.3808),
+        routeSamples: [
+          p(9, 17.4504, 78.3808),
+          p(12, lead.location.latitude, lead.location.longitude),
+          p(18, 17.4504, 78.3808),
+        ],
         activities: [
           {
             _id: `64d${u}${d}`.padEnd(24, "0"),

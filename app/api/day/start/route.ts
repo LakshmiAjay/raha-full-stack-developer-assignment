@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError, unauthorized } from "@/lib/http";
-import { localDateInZone } from "@/lib/location";
+import { localDateInZone, logCapturedLocation } from "@/lib/location";
 import { startDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
@@ -33,9 +33,16 @@ export async function POST(request: Request) {
           ...body.location,
           capturedAt: new Date(body.location.capturedAt),
         },
+        routeSamples: [
+          {
+            ...body.location,
+            capturedAt: new Date(body.location.capturedAt),
+          },
+        ],
         activities: [],
       };
       demoDays().push(day);
+      logCapturedLocation("day-start", s.userId, body.location);
       return NextResponse.json({ _id: day._id }, { status: 201 });
     }
     const database = await db(),
@@ -58,8 +65,15 @@ export async function POST(request: Request) {
         ...body.location,
         capturedAt: new Date(body.location.capturedAt),
       },
+      routeSamples: [
+        {
+          ...body.location,
+          capturedAt: new Date(body.location.capturedAt),
+        },
+      ],
       activities: [],
     });
+    logCapturedLocation("day-start", s.userId, body.location);
     return NextResponse.json({ _id: result.insertedId }, { status: 201 });
   } catch (e) {
     return apiError(e);

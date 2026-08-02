@@ -14,3 +14,9 @@ export const activitySchema = z.object({
   location: locationSchema,
 });
 export const endDaySchema = z.object({ location: locationSchema });
+export const routeSampleSchema = z.object({
+  location: locationSchema.refine(
+    (location) => location.accuracy <= 250,
+    "Location accuracy must be within 250 metres",
+  ),
+});

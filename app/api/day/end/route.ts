@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { dayRoutePoints, routeDistance } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
+import { logCapturedLocation } from "@/lib/location";
 import type { DaySession } from "@/lib/types";
 import { endDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
@@ -34,6 +35,8 @@ export async function POST(request: Request) {
         totalDistanceKm: distance.km,
         distanceSource: distance.source,
       });
+      (day.routeSamples ??= [day.startLocation]).push(endLocation);
+      logCapturedLocation("day-end", s.userId, endLocation);
       return NextResponse.json({
         totalDistanceKm: distance.km,
         distanceSource: distance.source,
@@ -59,8 +62,10 @@ export async function POST(request: Request) {
           totalDistanceKm: distance.km,
           distanceSource: distance.source,
         },
+        $push: { routeSamples: endLocation } as never,
       },
     );
+    logCapturedLocation("day-end", s.userId, endLocation);
     return NextResponse.json({
       totalDistanceKm: distance.km,
       distanceSource: distance.source,

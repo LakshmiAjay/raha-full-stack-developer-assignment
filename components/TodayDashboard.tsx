@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import RouteMap from "@/components/RouteMap";
 import {
   BriefcaseBusiness,
   Check,
@@ -31,29 +32,84 @@ type Day = {
   endedAt?: string;
   startLocation: Loc;
   endLocation?: Loc;
+  routeSamples?: Loc[];
   activities: Activity[];
   totalDistanceKm?: number;
   distanceSource?: string;
 };
+const TARGET_ACCURACY_METERS = 100,
+  MAX_ACCEPTED_ACCURACY_METERS = 250,
+  LOCATION_TIMEOUT_MS = 15000,
+  ROUTE_SAMPLE_INTERVAL_MS = 120000,
+  ROUTE_CONSENT_KEY = "raha-route-tracking-consent";
+
+function positionToLocation(position: GeolocationPosition): Loc {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: Math.round(position.coords.accuracy),
+    capturedAt: new Date(position.timestamp).toISOString(),
+  };
+}
 function locate(): Promise<Loc> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation)
       return reject(new Error("Location is not supported on this device"));
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        resolve({
-          latitude: p.coords.latitude,
-          longitude: p.coords.longitude,
-          accuracy: Math.round(p.coords.accuracy),
-          capturedAt: new Date(p.timestamp).toISOString(),
-        }),
-      () =>
+    let bestPosition: GeolocationPosition | null = null,
+      watchId: number | undefined,
+      settled = false;
+    const cleanup = () => {
+        clearTimeout(timeoutId);
+        if (watchId !== undefined)
+          navigator.geolocation.clearWatch(watchId);
+      },
+      finish = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (
+          bestPosition &&
+          bestPosition.coords.accuracy <= MAX_ACCEPTED_ACCURACY_METERS
+        ) {
+          resolve(positionToLocation(bestPosition));
+          return;
+        }
+        const accuracy = bestPosition
+          ? ` The best fix was ±${Math.round(bestPosition.coords.accuracy)} m.`
+          : "";
         reject(
           new Error(
-            "We could not access your location. Allow location access and try again.",
+            `A precise device location could not be obtained.${accuracy} Turn on GPS and precise location, then try again.`,
           ),
-        ),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+        );
+      },
+      timeoutId = window.setTimeout(finish, LOCATION_TIMEOUT_MS);
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (
+          !bestPosition ||
+          position.coords.accuracy < bestPosition.coords.accuracy
+        )
+          bestPosition = position;
+        if (position.coords.accuracy <= TARGET_ACCURACY_METERS) finish();
+      },
+      (error) => {
+        if (error.code !== error.PERMISSION_DENIED) return;
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(
+          new Error(
+            "Location permission was denied. Allow precise location access and try again.",
+          ),
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: LOCATION_TIMEOUT_MS,
+        maximumAge: 0,
+      },
     );
   });
 }
@@ -67,6 +123,8 @@ export default function TodayDashboard({ name }: { name: string }) {
     [leadsError, setLeadsError] = useState(""),
     [modal, setModal] = useState(false),
     [busy, setBusy] = useState(false),
+    [trackingAllowed, setTrackingAllowed] = useState(false),
+    [trackingStatus, setTrackingStatus] = useState(""),
     [error, setError] = useState("");
   const load = useCallback(async () => {
     const params = new URLSearchParams({
@@ -101,6 +159,64 @@ export default function TodayDashboard({ name }: { name: string }) {
       setError(e instanceof Error ? e.message : "Could not load your day"),
     );
   }, [load]);
+  useEffect(() => {
+    setTrackingAllowed(localStorage.getItem(ROUTE_CONSENT_KEY) === "true");
+  }, []);
+  useEffect(() => {
+    if (day?.status !== "active" || !trackingAllowed) {
+      setTrackingStatus(
+        day?.status === "active" ? "Route tracking is paused" : "",
+      );
+      return;
+    }
+    let cancelled = false,
+      timerId: number;
+    const scheduleNext = () => {
+      timerId = window.setTimeout(async () => {
+        setTrackingStatus("Getting the next precise route point…");
+        try {
+          const location = await locate();
+          if (cancelled) return;
+          const res = await fetch("/api/day/location", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ location }),
+            }),
+            json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Route point was not saved");
+          if (json.recorded)
+            setDay((current) =>
+              current && current.status === "active"
+                ? {
+                    ...current,
+                    routeSamples: [...(current.routeSamples ?? []), location],
+                  }
+                : current,
+            );
+          setTrackingStatus("Route updated · next point in 2 minutes");
+        } catch (trackingError) {
+          if (!cancelled)
+            setTrackingStatus(
+              trackingError instanceof Error
+                ? trackingError.message
+                : "Could not save this route point",
+            );
+        } finally {
+          if (!cancelled) scheduleNext();
+        }
+      }, ROUTE_SAMPLE_INTERVAL_MS);
+    };
+    setTrackingStatus("Route tracking on · next point in 2 minutes");
+    scheduleNext();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, [day?._id, day?.status, trackingAllowed]);
+  function changeTrackingConsent(allowed: boolean) {
+    setTrackingAllowed(allowed);
+    localStorage.setItem(ROUTE_CONSENT_KEY, String(allowed));
+  }
   function openVisitModal() {
     setModal(true);
     void loadLeads();
@@ -162,6 +278,15 @@ export default function TodayDashboard({ name }: { name: string }) {
     }
   }
   const active = day?.status === "active",
+    routePoints = day
+      ? day.routeSamples?.length
+        ? day.routeSamples
+        : [
+            day.startLocation,
+            ...day.activities.map((activity) => activity.location),
+            ...(day.endLocation ? [day.endLocation] : []),
+          ]
+      : [],
     events = day
       ? [
           {
@@ -243,16 +368,16 @@ export default function TodayDashboard({ name }: { name: string }) {
               <Navigation size={24} color="var(--red)" />
             </div>
             <div className="actions">
-              {!day || day.status === "completed" ? (
+              {!day ? (
                 <button
                   className="btn btn-primary"
                   onClick={start}
-                  disabled={busy}
+                  disabled={busy || !trackingAllowed}
                 >
                   <Clock3 size={16} />
                   Start day
                 </button>
-              ) : (
+              ) : day.status === "active" ? (
                 <>
                   <button
                     className="btn btn-red"
@@ -271,9 +396,35 @@ export default function TodayDashboard({ name }: { name: string }) {
                     End day
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
+            {(!day || day.status === "active") && (
+              <label className="route-consent">
+                <input
+                  type="checkbox"
+                  checked={trackingAllowed}
+                  onChange={(event) =>
+                    changeTrackingConsent(event.target.checked)
+                  }
+                />
+                <span>
+                  Record my route every 2 minutes while this page is active.
+                  {day ? " You can pause this at any time." : " Required to start the day."}
+                </span>
+              </label>
+            )}
+            {trackingStatus && (
+              <div className="route-tracking-status">{trackingStatus}</div>
+            )}
           </section>
+          {day && (
+            <RouteMap
+              routePoints={routePoints}
+              visits={day.activities}
+              active={active}
+              tracking={active && trackingAllowed}
+            />
+          )}
           <section className="card card-pad" style={{ marginTop: 22 }}>
             <div className="status-row">
               <h2 className="section-title">Day timeline</h2>
@@ -329,8 +480,9 @@ export default function TodayDashboard({ name }: { name: string }) {
           <section className="card card-pad" style={{ marginTop: 22 }}>
             <h2 className="section-title">A clean record</h2>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.7 }}>
-              Keep location services on when starting, visiting a lead, or
-              ending the day. We do not track you continuously.
+              With route tracking enabled, a location point is saved every two
+              minutes while this page remains active. Tracking stops when you
+              end the day, pause consent, close, or suspend the page.
             </p>
           </section>
         </aside>

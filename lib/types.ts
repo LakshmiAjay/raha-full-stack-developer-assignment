@@ -41,6 +41,7 @@ export type DaySession = {
   status: "active" | "completed";
   startedAt: Date;
   startLocation: LocationPoint;
+  routeSamples?: LocationPoint[];
   activities: Activity[];
   endedAt?: Date;
   endLocation?: LocationPoint;
