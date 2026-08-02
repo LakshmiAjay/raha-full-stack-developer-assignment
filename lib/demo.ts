@@ -1,4 +1,9 @@
-import type { LocationPoint, RouteCoordinate } from "./types";
+import type {
+  ApprovalStatus,
+  ApprovalType,
+  LocationPoint,
+  RouteCoordinate,
+} from "./types";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
 export const demoUsers = [
@@ -94,6 +99,14 @@ export type DemoDay = {
   routeSamples?: LocationPoint[];
   routePath?: RouteCoordinate[];
   activities: DemoActivity[];
+  breaks?: {
+    _id: string;
+    startedAt: Date;
+    plannedMinutes: number;
+    autoEndsAt: Date;
+    endedAt?: Date;
+    durationMinutes?: number;
+  }[];
   endedAt?: Date;
   endLocation?: LocationPoint;
   totalDistanceKm?: number;
@@ -161,7 +174,37 @@ function history(): DemoDay[] {
     }
   return rows;
 }
-const state = globalThis as typeof globalThis & { rahaDemoDays?: DemoDay[] };
+export type DemoApproval = {
+  _id: string;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  userId: string;
+  managerId: string;
+  branchId: string;
+  requestedDate?: string;
+  requestedTime?: string;
+  reason: string;
+  payload?: Record<string, unknown>;
+  createdAt: Date;
+  decidedAt?: Date;
+  decisionNote?: string;
+};
+const state = globalThis as typeof globalThis & {
+  rahaDemoDays?: DemoDay[];
+  rahaDemoApprovals?: DemoApproval[];
+  rahaDemoPolicy?: {
+    managerId: string;
+    branchId: string;
+    timezone: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+    saturdayHoliday: boolean;
+    sundayHoliday: boolean;
+    holidays: { date: string; name: string }[];
+    updatedAt: Date;
+  };
+};
 export const demoDays = () =>
   state.rahaDemoDays ?? (state.rahaDemoDays = history());
 export const demoUser = (id: string) => demoUsers.find((u) => u._id === id);
@@ -170,3 +213,19 @@ export const demoId = () =>
     .toString(16)
     .padEnd(24, "0")
     .slice(0, 24);
+export const demoApprovals = () =>
+  state.rahaDemoApprovals ?? (state.rahaDemoApprovals = []);
+export const demoPolicy = () =>
+  state.rahaDemoPolicy ??
+  (state.rahaDemoPolicy = {
+    managerId: demoUsers[0]._id,
+    branchId: demoBranchId,
+    timezone: "Asia/Kolkata",
+    startTime: "09:00",
+    endTime: "18:00",
+    breakMinutes: 60,
+    saturdayHoliday: false,
+    sundayHoliday: false,
+    holidays: [],
+    updatedAt: new Date(),
+  });

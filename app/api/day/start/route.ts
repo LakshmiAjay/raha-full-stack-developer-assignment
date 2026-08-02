@@ -6,13 +6,75 @@ import { startDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled, demoId } from "@/lib/demo";
+import {
+  dateAndTimeInZone,
+  ensurePendingApproval,
+  hasApproval,
+  policyForAssociate,
+} from "@/lib/approvals";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
     if (!s) return unauthorized();
     const body = startDaySchema.parse(await request.json()),
       now = new Date(),
-      localDate = localDateInZone(now, body.timezone);
+      policy = await policyForAssociate(s.userId, s.branchId),
+      policyNow = dateAndTimeInZone(now, policy.timezone),
+      localDate = localDateInZone(now, body.timezone),
+      namedHoliday = policy.holidays.find((item) => item.date === policyNow.date),
+      dayOfWeek = new Date(`${policyNow.date}T00:00:00Z`).getUTCDay(),
+      recurringHoliday =
+        dayOfWeek === 6 && policy.saturdayHoliday
+          ? "Saturday"
+          : dayOfWeek === 0 && policy.sundayHoliday
+            ? "Sunday"
+            : undefined,
+      holidayName = namedHoliday?.name ?? recurringHoliday,
+      outsideStartWindow =
+        policyNow.time < policy.startTime || policyNow.time > policy.endTime,
+      gates = [
+        ...(holidayName
+          ? [
+              {
+                type: "holiday_work" as const,
+                reason: `Work on ${holidayName} requires manager approval`,
+              },
+            ]
+          : []),
+        ...(outsideStartWindow
+          ? [
+              {
+                type: "session_start" as const,
+                reason: `Starting outside ${policy.startTime}–${policy.endTime} requires manager approval`,
+              },
+            ]
+          : []),
+      ];
+    let gate: (typeof gates)[number] | undefined;
+    for (const candidate of gates)
+      if (!(await hasApproval(s.userId, candidate.type, policyNow.date))) {
+        gate = candidate;
+        break;
+      }
+    if (gate) {
+      await ensurePendingApproval({
+        userId: s.userId,
+        branchId: s.branchId,
+        managerId: policy.managerId,
+        type: gate.type,
+        requestedDate: policyNow.date,
+        requestedTime: policyNow.time,
+        reason: gate.reason,
+      });
+      return NextResponse.json(
+        {
+          error: `${gate.reason}. A request has been sent to your manager.`,
+          approvalRequired: true,
+          approvalType: gate.type,
+        },
+        { status: 403 },
+      );
+    }
     if (demoEnabled()) {
       if (
         demoDays().some((d) => d.userId === s.userId && d.status === "active")

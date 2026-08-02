@@ -7,6 +7,8 @@ import { activitySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled, demoId, demoLeads } from "@/lib/demo";
+import { effectiveActiveBreak } from "@/lib/breaks";
+import type { DaySession } from "@/lib/types";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -27,6 +29,11 @@ export async function POST(request: Request) {
       if (!day)
         return NextResponse.json(
           { error: "Start your day before logging an activity" },
+          { status: 409 },
+        );
+      if (effectiveActiveBreak(day))
+        return NextResponse.json(
+          { error: "End your break before logging a visit" },
           { status: 409 },
         );
       const activity = {
@@ -51,7 +58,21 @@ export async function POST(request: Request) {
       return NextResponse.json(activity, { status: 201 });
     }
     const database = await db(),
-      leadId = new ObjectId(body.leadId);
+      userId = new ObjectId(s.userId),
+      leadId = new ObjectId(body.leadId),
+      day = await database
+        .collection<DaySession>("days")
+        .findOne({ userId, status: "active" });
+    if (!day)
+      return NextResponse.json(
+        { error: "Start your day before logging an activity" },
+        { status: 409 },
+      );
+    if (effectiveActiveBreak(day))
+      return NextResponse.json(
+        { error: "End your break before logging a visit" },
+        { status: 409 },
+      );
     const lead = await database
       .collection("leads")
       .findOne({ _id: leadId, branchId: new ObjectId(s.branchId) });
@@ -82,7 +103,7 @@ export async function POST(request: Request) {
     const result = await database
       .collection("days")
       .updateOne(
-        { userId: new ObjectId(s.userId), status: "active" },
+        { _id: day._id, status: "active" },
         {
           $push: {
             activities: activity,

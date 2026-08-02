@@ -14,9 +14,60 @@ export const activitySchema = z.object({
   location: locationSchema,
 });
 export const endDaySchema = z.object({ location: locationSchema });
+export const startBreakSchema = z.object({
+  minutes: z.number().int().min(1).max(240),
+});
 export const routeSampleSchema = z.object({
   location: locationSchema.refine(
     (location) => location.accuracy <= 250,
     "Location accuracy must be within 250 metres",
   ),
+});
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const approvalRequestSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("lead_creation"),
+    reason: z.string().trim().min(3).max(500),
+    payload: z.object({
+      name: z.string().trim().min(2).max(120),
+      contact: z.string().trim().min(3).max(160),
+      latitude: z.coerce.number().min(-90).max(90),
+      longitude: z.coerce.number().min(-180).max(180),
+    }),
+  }),
+  z.object({
+    type: z.enum(["holiday_work", "session_start", "session_end"]),
+    requestedDate: dateSchema,
+    requestedTime: timeSchema.optional(),
+    reason: z.string().trim().min(3).max(500),
+  }),
+  z.object({
+    type: z.literal("break_extension"),
+    requestedDate: dateSchema,
+    reason: z.string().trim().min(3).max(500),
+    payload: z.object({
+      additionalMinutes: z.coerce.number().int().min(5).max(240),
+    }),
+  }),
+]);
+export const approvalDecisionSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().max(500).optional().default(""),
+});
+export const workPolicySchema = z.object({
+  timezone: z.string().trim().min(1).max(80),
+  startTime: timeSchema,
+  endTime: timeSchema,
+  breakMinutes: z.number().int().min(0).max(480),
+  saturdayHoliday: z.boolean(),
+  sundayHoliday: z.boolean(),
+  holidays: z
+    .array(
+      z.object({
+        date: dateSchema,
+        name: z.string().trim().min(2).max(100),
+      }),
+    )
+    .max(100),
 });

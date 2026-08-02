@@ -1,5 +1,40 @@
 import type { ObjectId } from "mongodb";
 export type Role = "associate" | "head";
+export type ApprovalType =
+  | "lead_creation"
+  | "holiday_work"
+  | "session_start"
+  | "session_end"
+  | "break_extension";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type ApprovalRequest = {
+  _id: ObjectId;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  userId: ObjectId;
+  managerId: ObjectId;
+  branchId: ObjectId;
+  requestedDate?: string;
+  requestedTime?: string;
+  reason: string;
+  payload?: Record<string, unknown>;
+  createdAt: Date;
+  decidedAt?: Date;
+  decidedBy?: ObjectId;
+  decisionNote?: string;
+};
+export type WorkPolicy = {
+  managerId: ObjectId;
+  branchId: ObjectId;
+  timezone: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  saturdayHoliday: boolean;
+  sundayHoliday: boolean;
+  holidays: { date: string; name: string }[];
+  updatedAt: Date;
+};
 export type LocationPoint = {
   latitude: number;
   longitude: number;
@@ -46,6 +81,14 @@ export type DaySession = {
   routeSamples?: LocationPoint[];
   routePath?: RouteCoordinate[];
   activities: Activity[];
+  breaks?: {
+    _id: ObjectId;
+    startedAt: Date;
+    plannedMinutes: number;
+    autoEndsAt: Date;
+    endedAt?: Date;
+    durationMinutes?: number;
+  }[];
   endedAt?: Date;
   endLocation?: LocationPoint;
   totalDistanceKm?: number;

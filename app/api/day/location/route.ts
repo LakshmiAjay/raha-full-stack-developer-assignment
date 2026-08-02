@@ -7,6 +7,7 @@ import { routeSampleSchema } from "@/lib/validation";
 import { demoDays, demoEnabled } from "@/lib/demo";
 import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
+import { effectiveActiveBreak } from "@/lib/breaks";
 
 export async function POST(request: Request) {
   try {
@@ -28,6 +29,8 @@ export async function POST(request: Request) {
           { error: "There is no active workday to track" },
           { status: 409 },
         );
+      if (effectiveActiveBreak(day))
+        return NextResponse.json({ recorded: false, pausedForBreak: true });
       const samples = (day.routeSamples ??= [day.startLocation]);
       if (!shouldRecordRouteSample(samples, sample.capturedAt))
         return NextResponse.json({ recorded: false });
@@ -46,6 +49,8 @@ export async function POST(request: Request) {
         { error: "There is no active workday to track" },
         { status: 409 },
       );
+    if (effectiveActiveBreak(day))
+      return NextResponse.json({ recorded: false, pausedForBreak: true });
     const samples = day.routeSamples?.length
       ? day.routeSamples
       : [day.startLocation];
