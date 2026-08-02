@@ -65,7 +65,10 @@ export default function TodayDashboard({ name }: { name: string }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
-    const res = await fetch("/api/day");
+    const params = new URLSearchParams({
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+      res = await fetch(`/api/day?${params}`, { cache: "no-store" });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Could not load your day");
     setDay(json);

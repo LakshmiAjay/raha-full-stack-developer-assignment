@@ -1,21 +1,44 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Download, Search, Users } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  Download,
+  MapPin,
+  Search,
+  Users,
+  X,
+} from "lucide-react";
 type Associate = { _id: string; name: string };
+type Loc = { accuracy: number };
 type Activity = {
   _id: string;
   leadName: string;
   notes: string;
   createdAt: string;
+  location: Loc;
 };
 type Day = {
   _id: string;
+  userId: string;
   associateName: string;
   localDate: string;
-  status: string;
+  status: "active" | "completed";
+  startedAt: string;
+  endedAt?: string;
+  startLocation: Loc;
+  endLocation?: Loc;
   activities: Activity[];
   totalDistanceKm?: number;
 };
+type HistoryData = { associate: Associate; days: Day[] };
+function todayValue() {
+  const today = new Date(),
+    year = today.getFullYear(),
+    month = String(today.getMonth() + 1).padStart(2, "0"),
+    day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 export default function TeamDashboard({ name }: { name: string }) {
   const [data, setData] = useState<{ associates: Associate[]; days: Day[] }>({
       associates: [],
@@ -24,7 +47,11 @@ export default function TeamDashboard({ name }: { name: string }) {
     [q, setQ] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
-    [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+    [month, setMonth] = useState(new Date().toISOString().slice(0, 7)),
+    [history, setHistory] = useState<HistoryData | null>(null),
+    [historyOpen, setHistoryOpen] = useState(false),
+    [historyLoading, setHistoryLoading] = useState(false),
+    [historyError, setHistoryError] = useState("");
   const load = useCallback(async () => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
@@ -37,6 +64,38 @@ export default function TeamDashboard({ name }: { name: string }) {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
   }, [load]);
+  function showToday() {
+    const today = todayValue();
+    setFrom(today);
+    setTo(today);
+  }
+  async function openHistory(associateId: string) {
+    setHistoryOpen(true);
+    setHistory(null);
+    setHistoryError("");
+    setHistoryLoading(true);
+    try {
+      const params = new URLSearchParams({ associateId }),
+        res = await fetch(`/api/team/history?${params}`, { cache: "no-store" }),
+        json = await res.json();
+      if (!res.ok)
+        throw new Error(json.error || "Could not load activity history");
+      setHistory(json);
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error
+          ? error.message
+          : "Could not load activity history",
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+  const formatTime = (value: string) =>
+    new Date(value).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   const total = data.days.reduce((n, d) => n + (d.totalDistanceKm || 0), 0),
     visits = data.days.reduce((n, d) => n + d.activities.length, 0);
   return (
@@ -132,6 +191,15 @@ export default function TeamDashboard({ name }: { name: string }) {
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
+            <button
+              type="button"
+              className="btn btn-plain"
+              onClick={showToday}
+              title="Show records from today"
+            >
+              <CalendarDays size={15} />
+              Today
+            </button>
           </div>
         </div>
         <div className="table-wrap">
@@ -149,7 +217,15 @@ export default function TeamDashboard({ name }: { name: string }) {
               <tbody>
                 {data.days.map((d) => (
                   <tr key={d._id}>
-                    <td className="person">{d.associateName}</td>
+                    <td className="person">
+                      <button
+                        className="history-link"
+                        onClick={() => void openHistory(String(d.userId))}
+                      >
+                        {d.associateName}
+                        <span>View history</span>
+                      </button>
+                    </td>
                     <td>
                       {new Date(d.localDate + "T00:00:00").toLocaleDateString(
                         "en-IN",
@@ -196,6 +272,101 @@ export default function TeamDashboard({ name }: { name: string }) {
           )}
         </div>
       </section>
+      {historyOpen && (
+        <div className="modal-back" role="dialog" aria-modal="true">
+          <section className="modal history-modal">
+            <div className="status-row history-head">
+              <div>
+                <span className="eyebrow">Associate activity history</span>
+                <h2>{history?.associate.name ?? "Loading history…"}</h2>
+              </div>
+              <button
+                className="btn btn-plain"
+                onClick={() => setHistoryOpen(false)}
+                aria-label="Close activity history"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {historyLoading ? (
+              <div className="empty">Loading day-by-day activity…</div>
+            ) : historyError ? (
+              <div className="notice">{historyError}</div>
+            ) : history?.days.length ? (
+              <div className="history-days">
+                {history.days.map((day) => (
+                  <article className="history-day" key={day._id}>
+                    <div className="status-row history-day-head">
+                      <div>
+                        <strong>
+                          {new Date(
+                            day.localDate + "T00:00:00",
+                          ).toLocaleDateString("en-IN", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </strong>
+                        <div className="muted history-summary">
+                          {day.activities.length} visit
+                          {day.activities.length === 1 ? "" : "s"} ·{" "}
+                          {day.totalDistanceKm?.toFixed(1) ?? "—"} km
+                          {day.status === "active" ? " live estimate" : ""}
+                        </div>
+                      </div>
+                      <span className="pill">{day.status}</span>
+                    </div>
+                    <div className="timeline history-timeline">
+                      <div className="event">
+                        <div className="event-pin">
+                          <MapPin size={12} />
+                        </div>
+                        <div>
+                          <h3>Day started</h3>
+                          <p>Location accuracy ±{day.startLocation.accuracy} m</p>
+                        </div>
+                        <time>{formatTime(day.startedAt)}</time>
+                      </div>
+                      {day.activities.map((activity) => (
+                        <div className="event" key={activity._id}>
+                          <div className="event-pin">
+                            <BriefcaseBusiness size={12} />
+                          </div>
+                          <div>
+                            <h3>{activity.leadName}</h3>
+                            <p>{activity.notes}</p>
+                            <p>
+                              Location accuracy ±{activity.location.accuracy} m
+                            </p>
+                          </div>
+                          <time>{formatTime(activity.createdAt)}</time>
+                        </div>
+                      ))}
+                      {day.endedAt && (
+                        <div className="event">
+                          <div className="event-pin">
+                            <MapPin size={12} />
+                          </div>
+                          <div>
+                            <h3>Day ended</h3>
+                            <p>
+                              Location accuracy ±{day.endLocation?.accuracy} m
+                            </p>
+                          </div>
+                          <time>{formatTime(day.endedAt)}</time>
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty">No activity history recorded.</div>
+            )}
+          </section>
+        </div>
+      )}
     </>
   );
 }
