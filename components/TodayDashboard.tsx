@@ -537,7 +537,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                 <button
                   className="btn btn-primary"
                   onClick={start}
-                  disabled={busy || !trackingAllowed}
+                  disabled={busy}
                 >
                   <Clock3 size={16} />
                   {day ? `Start session ${nextSessionNumber}` : "Start day"}
@@ -593,7 +593,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                     ? day.onBreak
                       ? " Tracking remains off for the break."
                       : " You can pause this at any time."
-                    : ` Required to start ${day ? `session ${nextSessionNumber}` : "the day"}.`}
+                    : " Optional; day actions still capture their locations."}
                 </span>
               </label>
             )}

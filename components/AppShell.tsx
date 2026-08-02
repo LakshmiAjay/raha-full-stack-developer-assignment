@@ -157,7 +157,9 @@ export default function AppShell({
             {role === "head" ? "Branch head" : "Sales associate"}
             <br />
             <br />
-            Location is captured only when you take an action.
+            {role === "associate"
+              ? "Day actions always capture location. Continuous route tracking is optional."
+              : "Team data is limited to associates who report to you."}
           </div>
         </aside>
         <main className="content">{children}</main>

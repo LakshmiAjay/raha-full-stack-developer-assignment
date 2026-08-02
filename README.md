@@ -1,6 +1,6 @@
 # Raha Fielddesk
 
-A field activity and distance reimbursement application built for Raha's full-stack assessment. Sales associates can open a day, record lead visits with live location, close the day, and see their ordered timeline. Branch heads get a branch-scoped activity view, associate search, date filters, daily totals, session start/end notifications, and a monthly CSV reimbursement export. A manager-controlled approval workspace covers new lead proposals, holiday work, and session-time exceptions, including requests made in advance.
+A field activity and distance reimbursement application built for Raha's full-stack assessment. Sales associates can open a day, record lead visits with live location, close the day, and see their ordered timeline. Branch heads get a direct-report-scoped activity view, associate search, date filters, daily totals, session start/end notifications, and a manager-scoped monthly CSV reimbursement export. A manager-controlled approval workspace covers new lead proposals, holiday work, and session-time exceptions, including requests made in advance.
 
 ## Run locally
 
@@ -13,10 +13,16 @@ MongoDB is optional for evaluation: when `MONGODB_URI` is absent, the applicatio
 3. Run `npm run seed`.
 4. Run `npm run dev` and open `http://localhost:3000`.
 
-Seed login accounts use the server-only `DEFAULT_USER_PASSWORD` value:
+### Assessment test credentials
 
-- Branch head: `meera@raha.in`
-- Sales associate: `arjun@raha.in` (also `nisha@raha.in`, `vikram@raha.in`)
+The disposable seed accounts use `RahaDemo@2026`, matching the `DEFAULT_USER_PASSWORD` value in `.env.example`. Set the same value in the assessment Vercel environment before seeding it. Replace it for any non-demo deployment.
+
+- Branch head: `meera@raha.in` / `RahaDemo@2026`
+- Sales associate: `arjun@raha.in` / `RahaDemo@2026`
+
+### Live demo
+
+Add the final Vercel HTTPS URL here after deploying the default-branch commit.
 
 ### Seed data
 
@@ -54,6 +60,8 @@ Duplicate starts, ending without an active day, activities after close, foreign 
 
 At day end the start, activity, and end points are sorted by their captured timestamps. Every consecutive pair is sent to the OSRM driving-route API and summed. Identical points add zero. If routing is unavailable or times out, only that segment falls back to Haversine distance and the saved `distanceSource` makes the fallback visible. Haversine under-reports real road distance. The provider lives behind `segmentDistanceKm`, so OpenRouteService or Google Routes can replace OSRM without changing day logic.
 
+Continuous two-minute route sampling is an optional associate-controlled enhancement. When it is off, start, visit, and end actions still capture locations and form the complete reimbursement route required by the assessment. When it is on, the additional samples refine the road route while the page remains active.
+
 For production, use a contracted routing service instead of OSRM's public demo server and calculate asynchronously with retries for stronger reliability.
 
 ## Continuous route capture
@@ -62,8 +70,13 @@ A browser could use `watchPosition`, batch samples, reject low-accuracy jumps, a
 
 ## Deployment
 
-Create a MongoDB Atlas database, add the environment variables in Vercel, run the seed script once against Atlas, and deploy this repository as a Next.js project. Geolocation requires HTTPS outside localhost.
+Create a MongoDB Atlas database, add the environment variables in Vercel (including `DEFAULT_USER_PASSWORD=RahaDemo@2026` for the disposable assessment accounts), run the seed script once against Atlas, and deploy this repository as a Next.js project. Geolocation requires HTTPS outside localhost. After verification, replace the placeholder in the `Live demo` section with the deployed URL.
 
 ## With more time
 
-I would add an auditable correction flow, idempotency keys for mobile retries, a road-route map, pagination, manager timezone preferences, rate limiting, structured logs, and integration tests against an ephemeral MongoDB instance.
+- Implement an auditable correction workflow for disputed visits, locations, and reimbursement amounts, ensuring that both the original and corrected values are retained for complete transparency and traceability.
+- Introduce idempotency keys along with an offline action queue to prevent duplicate sessions or visit records when mobile devices retry requests due to network interruptions.
+- Adopt cursor-based pagination to efficiently handle large datasets, including team activity histories, approval requests, notifications, and travel records, while maintaining consistent performance.
+- Strengthen API security by applying rate limiting and abuse protection measures, particularly for authentication and data-modifying endpoints, to safeguard system reliability.
+- Establish comprehensive observability through structured logging, performance metrics, distributed tracing, and automated alerts to quickly detect routing failures, database latency, and rejected operations.
+- Offload distance calculations to background processing jobs with configurable routing-provider retry mechanisms and reconciliation processes, ensuring accurate travel distance records even when external routing services are temporarily unavailable.
