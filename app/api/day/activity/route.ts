@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { straightLineDistanceMeters } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
 import { activitySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
         leadId: lead._id,
         leadName: lead.name,
         notes: body.notes,
+        leadLocation: { ...lead.location },
+        leadLocationDistanceMeters: straightLineDistanceMeters(
+          body.location,
+          lead.location,
+        ),
         location: {
           ...body.location,
           capturedAt: new Date(body.location.capturedAt),
@@ -56,6 +62,14 @@ export async function POST(request: Request) {
       leadId,
       leadName: lead.name,
       notes: body.notes,
+      leadLocation: {
+        latitude: Number(lead.location.latitude),
+        longitude: Number(lead.location.longitude),
+      },
+      leadLocationDistanceMeters: straightLineDistanceMeters(
+        body.location,
+        lead.location as { latitude: number; longitude: number },
+      ),
       location: {
         ...body.location,
         capturedAt: new Date(body.location.capturedAt),

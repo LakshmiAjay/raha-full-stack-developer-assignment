@@ -129,6 +129,8 @@ async function main() {
             leadId: a._id,
             leadName: a.name,
             notes: "Discussed renewal and next month\u2019s requirement.",
+            leadLocation: { ...a.location },
+            leadLocationDistanceMeters: 0,
             location: p(a.location.latitude, a.location.longitude, 11),
             createdAt: p(a.location.latitude, a.location.longitude, 11)
               .capturedAt,
@@ -138,6 +140,8 @@ async function main() {
             leadId: b._id,
             leadName: b.name,
             notes: "Shared product update; follow-up requested on Friday.",
+            leadLocation: { ...b.location },
+            leadLocationDistanceMeters: 0,
             location: p(b.location.latitude, b.location.longitude, 15),
             createdAt: p(b.location.latitude, b.location.longitude, 15)
               .capturedAt,

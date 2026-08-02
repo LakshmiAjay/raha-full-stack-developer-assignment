@@ -1,5 +1,7 @@
 import type { LocationPoint } from "./types";
 
+type Coordinates = Pick<LocationPoint, "latitude" | "longitude">;
+
 type DistanceDay = {
   status: "active" | "completed";
   startLocation: LocationPoint;
@@ -19,7 +21,7 @@ export function dayRoutePoints(
   ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime());
 }
 
-export function haversineKm(a: LocationPoint, b: LocationPoint) {
+export function haversineKm(a: Coordinates, b: Coordinates) {
   const r = 6371,
     toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(b.latitude - a.latitude),
@@ -30,6 +32,9 @@ export function haversineKm(a: LocationPoint, b: LocationPoint) {
       Math.cos(toRad(b.latitude)) *
       Math.sin(dLon / 2) ** 2;
   return 2 * r * Math.asin(Math.sqrt(q));
+}
+export function straightLineDistanceMeters(a: Coordinates, b: Coordinates) {
+  return Math.round(haversineKm(a, b) * 1000);
 }
 export async function segmentDistanceKm(
   a: LocationPoint,

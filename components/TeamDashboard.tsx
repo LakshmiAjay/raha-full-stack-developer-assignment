@@ -17,6 +17,7 @@ type Activity = {
   notes: string;
   createdAt: string;
   location: Loc;
+  leadLocationDistanceMeters?: number;
 };
 type Day = {
   _id: string;
@@ -32,6 +33,9 @@ type Day = {
   totalDistanceKm?: number;
 };
 type HistoryData = { associate: Associate; days: Day[] };
+function leadDistanceLabel(meters: number) {
+  return meters < 1000 ? `${meters} m` : `${(meters / 1000).toFixed(1)} km`;
+}
 function todayValue() {
   const today = new Date(),
     year = today.getFullYear(),
@@ -336,9 +340,11 @@ export default function TeamDashboard({ name }: { name: string }) {
                           <div>
                             <h3>{activity.leadName}</h3>
                             <p>{activity.notes}</p>
-                            <p>
-                              Location accuracy ±{activity.location.accuracy} m
-                            </p>
+                            <span className="proximity-note">
+                              {activity.leadLocationDistanceMeters === undefined
+                                ? `GPS accuracy ±${activity.location.accuracy} m`
+                                : `${leadDistanceLabel(activity.leadLocationDistanceMeters)} from saved lead location · GPS accuracy ±${activity.location.accuracy} m`}
+                            </span>
                           </div>
                           <time>{formatTime(activity.createdAt)}</time>
                         </div>
