@@ -59,20 +59,45 @@ function locate(): Promise<Loc> {
 export default function TodayDashboard({ name }: { name: string }) {
   const [day, setDay] = useState<Day | null>(null),
     [leads, setLeads] = useState<Lead[]>([]),
+    [leadsLoading, setLeadsLoading] = useState(false),
+    [leadsError, setLeadsError] = useState(""),
     [modal, setModal] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
-    const [d, l] = await Promise.all([
-      fetch("/api/day").then((r) => r.json()),
-      fetch("/api/leads").then((r) => r.json()),
-    ]);
-    setDay(d);
-    setLeads(l);
+    const res = await fetch("/api/day");
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Could not load your day");
+    setDay(json);
+  }, []);
+  const loadLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    setLeadsError("");
+    try {
+      const res = await fetch("/api/leads", { cache: "no-store" }),
+        json = await res.json();
+      if (!res.ok)
+        throw new Error(json.error || "Could not load branch leads");
+      if (!Array.isArray(json)) throw new Error("Invalid leads response");
+      setLeads(json);
+    } catch (e) {
+      setLeads([]);
+      setLeadsError(
+        e instanceof Error ? e.message : "Could not load branch leads",
+      );
+    } finally {
+      setLeadsLoading(false);
+    }
   }, []);
   useEffect(() => {
-    load();
+    load().catch((e) =>
+      setError(e instanceof Error ? e.message : "Could not load your day"),
+    );
   }, [load]);
+  function openVisitModal() {
+    setModal(true);
+    void loadLeads();
+  }
   async function action(url: string, payload: object) {
     setBusy(true);
     setError("");
@@ -220,7 +245,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                 <>
                   <button
                     className="btn btn-red"
-                    onClick={() => setModal(true)}
+                    onClick={openVisitModal}
                     disabled={busy}
                   >
                     <Plus size={16} />
@@ -315,9 +340,21 @@ export default function TodayDashboard({ name }: { name: string }) {
             </div>
             <div className="field">
               <label>Lead</label>
-              <select className="input" name="leadId" required defaultValue="">
+              <select
+                className="input"
+                name="leadId"
+                required
+                defaultValue=""
+                disabled={leadsLoading || Boolean(leadsError) || !leads.length}
+              >
                 <option value="" disabled>
-                  Select a lead
+                  {leadsLoading
+                    ? "Loading leads…"
+                    : leadsError
+                      ? "Could not load leads"
+                      : leads.length
+                        ? "Select a lead"
+                        : "No leads available"}
                 </option>
                 {leads.map((l) => (
                   <option value={l._id} key={l._id}>
@@ -325,6 +362,20 @@ export default function TodayDashboard({ name }: { name: string }) {
                   </option>
                 ))}
               </select>
+              {leadsError && (
+                <div style={{ marginTop: 8 }}>
+                  <span className="notice">{leadsError}</span>
+                  <button
+                    type="button"
+                    className="btn btn-plain"
+                    onClick={() => void loadLeads()}
+                    disabled={leadsLoading}
+                    style={{ marginLeft: 8 }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Meeting notes</label>
@@ -342,7 +393,7 @@ export default function TodayDashboard({ name }: { name: string }) {
             <button
               className="btn btn-red"
               style={{ width: "100%" }}
-              disabled={busy}
+              disabled={busy || leadsLoading || !leads.length}
             >
               {busy ? "Getting location…" : "Save visit"}
             </button>

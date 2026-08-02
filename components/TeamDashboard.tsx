@@ -83,7 +83,7 @@ export default function TeamDashboard({ name }: { name: string }) {
             {total.toFixed(1)} <small>km</small>
           </div>
           <span className="muted" style={{ fontSize: 12 }}>
-            completed days
+            live estimates included
           </span>
         </div>
       </div>
@@ -175,6 +175,14 @@ export default function TeamDashboard({ name }: { name: string }) {
                     </td>
                     <td>
                       <strong>{d.totalDistanceKm?.toFixed(1) ?? "—"}</strong> km
+                      {d.status === "active" && (
+                        <div
+                          className="muted"
+                          style={{ fontSize: 11, marginTop: 3 }}
+                        >
+                          Live estimate
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

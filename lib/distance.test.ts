@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { haversineKm, routeDistance } from "./distance";
+import {
+  dayRoutePoints,
+  haversineKm,
+  routeDistance,
+  withLiveDistance,
+} from "./distance";
 const p = (latitude: number, longitude: number, capturedAt = new Date()) => ({
   latitude,
   longitude,
@@ -13,4 +18,36 @@ describe("distance", () => {
     expect(haversineKm(p(0, 0), p(0, 1))).toBeCloseTo(111.19, 1));
   it("orders can be handled by caller without insertion assumptions", async () =>
     expect((await routeDistance([p(1, 1), p(1, 1)])).km).toBe(0));
+  it("builds live and final routes in capture order", () => {
+    const start = p(1, 1, new Date("2026-08-01T09:00:00Z")),
+      visit = p(2, 2, new Date("2026-08-01T12:00:00Z")),
+      end = p(3, 3, new Date("2026-08-01T18:00:00Z")),
+      day = { startLocation: start, activities: [{ location: visit }] };
+
+    expect(dayRoutePoints(day)).toEqual([start, visit]);
+    expect(dayRoutePoints(day, end)).toEqual([start, visit, end]);
+  });
+  it("returns a zero live estimate before the first travel segment", async () => {
+    const location = p(1, 1),
+      day = {
+        status: "active" as const,
+        startLocation: location,
+        activities: [],
+      },
+      result = await withLiveDistance(day);
+
+    expect(result.totalDistanceKm).toBe(0);
+    expect(result.distanceSource).toContain("Live estimate");
+  });
+  it("preserves the stored final distance for completed days", async () => {
+    const day = {
+      status: "completed" as const,
+      startLocation: p(1, 1),
+      activities: [],
+      totalDistanceKm: 12.3,
+      distanceSource: "OSRM road route",
+    };
+
+    expect(await withLiveDistance(day)).toBe(day);
+  });
 });

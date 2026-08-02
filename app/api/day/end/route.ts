@@ -1,8 +1,8 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { routeDistance } from "@/lib/distance";
+import { dayRoutePoints, routeDistance } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
-import type { DaySession, LocationPoint } from "@/lib/types";
+import type { DaySession } from "@/lib/types";
 import { endDaySchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
@@ -26,12 +26,7 @@ export async function POST(request: Request) {
           { error: "There is no active workday to end" },
           { status: 409 },
         );
-      const points = [
-          day.startLocation,
-          ...day.activities.map((a) => a.location),
-          endLocation,
-        ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime()),
-        distance = await routeDistance(points);
+      const distance = await routeDistance(dayRoutePoints(day, endLocation));
       Object.assign(day, {
         status: "completed",
         endedAt,
@@ -53,12 +48,7 @@ export async function POST(request: Request) {
         { error: "There is no active workday to end" },
         { status: 409 },
       );
-    const points: LocationPoint[] = [
-        day.startLocation,
-        ...day.activities.map((a) => a.location),
-        endLocation,
-      ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime()),
-      distance = await routeDistance(points);
+    const distance = await routeDistance(dayRoutePoints(day, endLocation));
     await database.collection("days").updateOne(
       { _id: day._id, status: "active" },
       {

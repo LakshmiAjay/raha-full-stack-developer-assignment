@@ -1,4 +1,24 @@
 import type { LocationPoint } from "./types";
+
+type DistanceDay = {
+  status: "active" | "completed";
+  startLocation: LocationPoint;
+  activities: Array<{ location: LocationPoint }>;
+  totalDistanceKm?: number;
+  distanceSource?: string;
+};
+
+export function dayRoutePoints(
+  day: Pick<DistanceDay, "startLocation" | "activities">,
+  endLocation?: LocationPoint,
+) {
+  return [
+    day.startLocation,
+    ...day.activities.map((activity) => activity.location),
+    ...(endLocation ? [endLocation] : []),
+  ].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime());
+}
+
 export function haversineKm(a: LocationPoint, b: LocationPoint) {
   const r = 6371,
     toRad = (v: number) => (v * Math.PI) / 180;
@@ -39,4 +59,17 @@ export async function routeDistance(points: LocationPoint[]) {
     sources.add(result.source);
   }
   return { km: Math.round(km * 10) / 10, source: [...sources].join(" + ") };
+}
+
+export async function withLiveDistance<T extends DistanceDay>(day: T) {
+  if (day.status !== "active") return day;
+
+  const distance = await routeDistance(dayRoutePoints(day));
+  return {
+    ...day,
+    totalDistanceKm: distance.km,
+    distanceSource: distance.source
+      ? `Live estimate · ${distance.source}`
+      : "Live estimate · no travel segments yet",
+  };
 }
