@@ -76,6 +76,8 @@ export type DemoActivity = {
   leadId: string;
   leadName: string;
   notes: string;
+  leadLocation?: { latitude: number; longitude: number };
+  leadLocationDistanceMeters?: number;
   location: LocationPoint;
   createdAt: Date;
 };
@@ -135,6 +137,8 @@ function history(): DemoDay[] {
             leadId: lead._id,
             leadName: lead.name,
             notes: "Discussed renewal and next month’s requirement.",
+            leadLocation: { ...lead.location },
+            leadLocationDistanceMeters: 0,
             location: p(12, lead.location.latitude, lead.location.longitude),
             createdAt: p(12, lead.location.latitude, lead.location.longitude)
               .capturedAt,

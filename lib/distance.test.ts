@@ -3,6 +3,7 @@ import {
   dayRoutePoints,
   haversineKm,
   routeDistance,
+  straightLineDistanceMeters,
   withLiveDistance,
 } from "./distance";
 const p = (latitude: number, longitude: number, capturedAt = new Date()) => ({
@@ -16,6 +17,13 @@ describe("distance", () => {
     expect(haversineKm(p(17, 78), p(17, 78))).toBe(0));
   it("calculates a known great-circle distance", () =>
     expect(haversineKm(p(0, 0), p(0, 1))).toBeCloseTo(111.19, 1));
+  it("reports the straight-line lead location difference in metres", () => {
+    expect(straightLineDistanceMeters(p(17, 78), p(17, 78))).toBe(0);
+    expect(straightLineDistanceMeters(p(0, 0), p(0, 0.001))).toBeCloseTo(
+      111,
+      0,
+    );
+  });
   it("orders can be handled by caller without insertion assumptions", async () =>
     expect((await routeDistance([p(1, 1), p(1, 1)])).km).toBe(0));
   it("builds live and final routes in capture order", () => {

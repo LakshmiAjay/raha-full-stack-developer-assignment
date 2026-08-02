@@ -22,6 +22,7 @@ type Activity = {
   notes: string;
   createdAt: string;
   location: Loc;
+  leadLocationDistanceMeters?: number;
 };
 type Day = {
   _id: string;
@@ -56,6 +57,9 @@ function locate(): Promise<Loc> {
     );
   });
 }
+function leadDistanceLabel(meters: number) {
+  return meters < 1000 ? `${meters} m` : `${(meters / 1000).toFixed(1)} km`;
+}
 export default function TodayDashboard({ name }: { name: string }) {
   const [day, setDay] = useState<Day | null>(null),
     [leads, setLeads] = useState<Lead[]>([]),
@@ -65,7 +69,10 @@ export default function TodayDashboard({ name }: { name: string }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
-    const res = await fetch("/api/day");
+    const params = new URLSearchParams({
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+      res = await fetch(`/api/day?${params}`, { cache: "no-store" });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Could not load your day");
     setDay(json);
@@ -166,7 +173,11 @@ export default function TodayDashboard({ name }: { name: string }) {
           ...day.activities.map((a) => ({
             kind: "visit",
             title: a.leadName,
-            text: a.notes + ` · accuracy ±${a.location.accuracy} m`,
+            text: a.notes,
+            proximity:
+              a.leadLocationDistanceMeters === undefined
+                ? `GPS accuracy ±${a.location.accuracy} m`
+                : `${leadDistanceLabel(a.leadLocationDistanceMeters)} from saved lead location · GPS accuracy ±${a.location.accuracy} m`,
             at: a.createdAt,
           })),
           ...(day.endedAt
@@ -284,6 +295,9 @@ export default function TodayDashboard({ name }: { name: string }) {
                     <div>
                       <h3>{e.title}</h3>
                       <p>{e.text}</p>
+                      {"proximity" in e && e.proximity && (
+                        <span className="proximity-note">{e.proximity}</span>
+                      )}
                     </div>
                     <time>
                       {new Date(e.at).toLocaleTimeString("en-IN", {
@@ -388,7 +402,8 @@ export default function TodayDashboard({ name }: { name: string }) {
               />
             </div>
             <p className="muted" style={{ fontSize: 12 }}>
-              Your current location will be captured when you save.
+              Your current location will be captured and compared with the
+              lead’s saved location when you save.
             </p>
             <button
               className="btn btn-red"

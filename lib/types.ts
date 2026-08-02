@@ -27,6 +27,8 @@ export type Activity = {
   leadId: ObjectId;
   leadName: string;
   notes: string;
+  leadLocation?: { latitude: number; longitude: number };
+  leadLocationDistanceMeters?: number;
   location: LocationPoint;
   createdAt: Date;
 };
