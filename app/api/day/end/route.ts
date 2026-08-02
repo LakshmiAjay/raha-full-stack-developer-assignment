@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { dayRoutePoints, routeDistance } from "@/lib/distance";
+import { dayRoutePoints, routeDetails } from "@/lib/distance";
 import { apiError, unauthorized } from "@/lib/http";
 import { logCapturedLocation } from "@/lib/location";
 import type { DaySession } from "@/lib/types";
@@ -27,13 +27,14 @@ export async function POST(request: Request) {
           { error: "There is no active workday to end" },
           { status: 409 },
         );
-      const distance = await routeDistance(dayRoutePoints(day, endLocation));
+      const distance = await routeDetails(dayRoutePoints(day, endLocation));
       Object.assign(day, {
         status: "completed",
         endedAt,
         endLocation,
         totalDistanceKm: distance.km,
         distanceSource: distance.source,
+        routePath: distance.path,
       });
       (day.routeSamples ??= [day.startLocation]).push(endLocation);
       logCapturedLocation("day-end", s.userId, endLocation);
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
         { error: "There is no active workday to end" },
         { status: 409 },
       );
-    const distance = await routeDistance(dayRoutePoints(day, endLocation));
+    const distance = await routeDetails(dayRoutePoints(day, endLocation));
     await database.collection("days").updateOne(
       { _id: day._id, status: "active" },
       {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
           endLocation,
           totalDistanceKm: distance.km,
           distanceSource: distance.source,
+          routePath: distance.path,
         },
         $push: { routeSamples: endLocation } as never,
       },

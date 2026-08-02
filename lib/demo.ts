@@ -1,4 +1,4 @@
-import type { LocationPoint } from "./types";
+import type { LocationPoint, RouteCoordinate } from "./types";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
 export const demoUsers = [
@@ -92,6 +92,7 @@ export type DemoDay = {
   startedAt: Date;
   startLocation: LocationPoint;
   routeSamples?: LocationPoint[];
+  routePath?: RouteCoordinate[];
   activities: DemoActivity[];
   endedAt?: Date;
   endLocation?: LocationPoint;

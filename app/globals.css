@@ -288,27 +288,20 @@ textarea {
 }
 .route-path-shadow {
   stroke: rgba(255, 255, 255, 0.9);
-  stroke-width: 8;
+  stroke-width: 9;
 }
 .route-path {
   stroke: var(--red);
-  stroke-width: 4;
-}
-.route-path-new {
-  animation: route-segment-draw 1.4s ease-out both;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-width: 5;
 }
 .live-route-leg {
   fill: none;
-  opacity: 0.8;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.9));
+  opacity: 0.9;
   stroke: #2478d4;
-  stroke-dasharray: 4 6;
   stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-width: 3;
-}
-@keyframes route-segment-draw {
-  to { stroke-dashoffset: 0; }
 }
 .map-marker {
   align-items: center;
@@ -385,6 +378,7 @@ textarea {
   z-index: 4;
 }
 .route-legend {
+  background: #fffdf8;
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
@@ -403,6 +397,19 @@ textarea {
   display: inline-block;
   height: 8px;
   width: 8px;
+}
+.legend-line {
+  border-radius: 3px;
+  display: inline-block;
+  height: 4px;
+  width: 22px;
+}
+.legend-line.recorded {
+  background: var(--red);
+  box-shadow: 0 0 0 2px white;
+}
+.legend-line.live {
+  background: #2478d4;
 }
 .status-row {
   display: flex;

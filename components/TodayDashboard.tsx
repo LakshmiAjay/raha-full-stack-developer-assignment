@@ -35,6 +35,7 @@ type Day = {
   startLocation: Loc;
   endLocation?: Loc;
   routeSamples?: Loc[];
+  routePath?: { latitude: number; longitude: number }[];
   activities: Activity[];
   totalDistanceKm?: number;
   totalDistanceTodayKm?: number;
@@ -42,7 +43,7 @@ type Day = {
 };
 const TARGET_ACCURACY_METERS = 100,
   MAX_ACCEPTED_ACCURACY_METERS = 250,
-  LOCATION_TIMEOUT_MS = 15000,
+  LOCATION_TIMEOUT_MS = 30000,
   ROUTE_SAMPLE_INTERVAL_MS = 120000,
   ROUTE_CONSENT_KEY = "raha-route-tracking-consent";
 
@@ -53,6 +54,9 @@ function positionToLocation(position: GeolocationPosition): Loc {
     accuracy: Math.round(position.coords.accuracy),
     capturedAt: new Date(position.timestamp).toISOString(),
   };
+}
+function requestHighAccuracy() {
+  return !navigator.userAgent.includes("Macintosh");
 }
 function locate(): Promise<Loc> {
   return new Promise((resolve, reject) => {
@@ -65,6 +69,24 @@ function locate(): Promise<Loc> {
         clearTimeout(timeoutId);
         if (watchId !== undefined)
           navigator.geolocation.clearWatch(watchId);
+      },
+      acceptPosition = (position: GeolocationPosition) => {
+        if (
+          !bestPosition ||
+          position.coords.accuracy < bestPosition.coords.accuracy
+        )
+          bestPosition = position;
+        if (position.coords.accuracy <= TARGET_ACCURACY_METERS) finish();
+      },
+      rejectPermission = (error: GeolocationPositionError) => {
+        if (error.code !== error.PERMISSION_DENIED || settled) return;
+        settled = true;
+        cleanup();
+        reject(
+          new Error(
+            "Location permission was denied. Allow location access for this browser and try again.",
+          ),
+        );
       },
       finish = () => {
         if (settled) return;
@@ -82,36 +104,28 @@ function locate(): Promise<Loc> {
           : "";
         reject(
           new Error(
-            `A precise device location could not be obtained.${accuracy} Turn on GPS and precise location, then try again.`,
+            `A precise device location could not be obtained.${accuracy} Keep Wi-Fi enabled and allow Location Services for this browser, then try again.`,
           ),
         );
       },
       timeoutId = window.setTimeout(finish, LOCATION_TIMEOUT_MS);
 
     watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        if (
-          !bestPosition ||
-          position.coords.accuracy < bestPosition.coords.accuracy
-        )
-          bestPosition = position;
-        if (position.coords.accuracy <= TARGET_ACCURACY_METERS) finish();
-      },
-      (error) => {
-        if (error.code !== error.PERMISSION_DENIED) return;
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(
-          new Error(
-            "Location permission was denied. Allow precise location access and try again.",
-          ),
-        );
-      },
+      acceptPosition,
+      rejectPermission,
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: requestHighAccuracy(),
         timeout: LOCATION_TIMEOUT_MS,
-        maximumAge: 0,
+        maximumAge: 30000,
+      },
+    );
+    navigator.geolocation.getCurrentPosition(
+      acceptPosition,
+      rejectPermission,
+      {
+        enableHighAccuracy: false,
+        timeout: LOCATION_TIMEOUT_MS,
+        maximumAge: 60000,
       },
     );
   });
@@ -130,6 +144,7 @@ export default function TodayDashboard({ name }: { name: string }) {
     [trackingStatus, setTrackingStatus] = useState(""),
     [trackingUnavailable, setTrackingUnavailable] = useState(false),
     [liveLocation, setLiveLocation] = useState<Loc | null>(null),
+    [liveTrail, setLiveTrail] = useState<Loc[]>([]),
     [error, setError] = useState("");
   const latestLocationRef = useRef<Loc | null>(null);
   const load = useCallback(async () => {
@@ -172,6 +187,7 @@ export default function TodayDashboard({ name }: { name: string }) {
     if (day?.status !== "active" || !trackingAllowed) {
       latestLocationRef.current = null;
       setLiveLocation(null);
+      setLiveTrail([]);
       setTrackingUnavailable(false);
       setTrackingStatus(
         day?.status === "active" ? "Route tracking is paused" : "",
@@ -183,6 +199,7 @@ export default function TodayDashboard({ name }: { name: string }) {
       watchId: number | undefined;
     latestLocationRef.current = null;
     setLiveLocation(null);
+    setLiveTrail([]);
     setTrackingUnavailable(false);
 
     if (!navigator.geolocation) {
@@ -203,6 +220,16 @@ export default function TodayDashboard({ name }: { name: string }) {
         }
         latestLocationRef.current = location;
         setLiveLocation(location);
+        setLiveTrail((trail) => {
+          const previous = trail.at(-1);
+          if (
+            previous &&
+            previous.latitude === location.latitude &&
+            previous.longitude === location.longitude
+          )
+            return trail;
+          return [...trail.slice(-119), location];
+        });
         setTrackingUnavailable(false);
         setTrackingStatus(
           `Live device location ±${location.accuracy} m · route saves every 2 minutes`,
@@ -220,8 +247,8 @@ export default function TodayDashboard({ name }: { name: string }) {
         );
       },
       {
-        enableHighAccuracy: true,
-        maximumAge: 0,
+        enableHighAccuracy: requestHighAccuracy(),
+        maximumAge: 30000,
         timeout: LOCATION_TIMEOUT_MS,
       },
     );
@@ -248,14 +275,8 @@ export default function TodayDashboard({ name }: { name: string }) {
             json = await res.json();
           if (!res.ok) throw new Error(json.error || "Route point was not saved");
           if (json.recorded)
-            setDay((current) =>
-              current && current.status === "active"
-                ? {
-                    ...current,
-                    routeSamples: [...(current.routeSamples ?? []), location],
-                  }
-                : current,
-            );
+            await load();
+          if (json.recorded) setLiveTrail([]);
           setTrackingStatus(
             json.recorded
               ? `Route updated from device GPS ±${location.accuracy} m · next save in 2 minutes`
@@ -280,7 +301,18 @@ export default function TodayDashboard({ name }: { name: string }) {
       window.clearTimeout(timerId);
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
-  }, [day?._id, day?.status, trackingAllowed]);
+  }, [day?._id, day?.status, load, trackingAllowed]);
+
+  async function currentActionLocation() {
+    const live = latestLocationRef.current;
+    if (
+      live &&
+      live.accuracy <= MAX_ACCEPTED_ACCURACY_METERS &&
+      Date.now() - new Date(live.capturedAt).getTime() <= 60000
+    )
+      return live;
+    return locate();
+  }
   function changeTrackingConsent(allowed: boolean) {
     setTrackingAllowed(allowed);
     localStorage.setItem(ROUTE_CONSENT_KEY, String(allowed));
@@ -311,7 +343,7 @@ export default function TodayDashboard({ name }: { name: string }) {
   }
   async function start() {
     try {
-      const location = await locate();
+      const location = await currentActionLocation();
       await action("/api/day/start", {
         location,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -322,7 +354,7 @@ export default function TodayDashboard({ name }: { name: string }) {
   }
   async function end() {
     try {
-      const location = await locate();
+      const location = await currentActionLocation();
       await action("/api/day/end", { location });
     } catch (e) {
       setError((e as Error).message);
@@ -332,7 +364,7 @@ export default function TodayDashboard({ name }: { name: string }) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     try {
-      const location = await locate();
+      const location = await currentActionLocation();
       if (
         await action("/api/day/activity", {
           leadId: form.get("leadId"),
@@ -493,6 +525,8 @@ export default function TodayDashboard({ name }: { name: string }) {
           {day && (
             <RouteMap
               routePoints={routePoints}
+              pathPoints={day.routePath}
+              liveTrail={active ? liveTrail : []}
               visits={day.activities}
               active={active}
               tracking={active && trackingAllowed}

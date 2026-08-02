@@ -44,6 +44,12 @@ export async function POST(request: Request) {
             capturedAt: new Date(body.location.capturedAt),
           },
         ],
+        routePath: [
+          {
+            latitude: body.location.latitude,
+            longitude: body.location.longitude,
+          },
+        ],
         activities: [],
       };
       demoDays().push(day);
@@ -82,6 +88,12 @@ export async function POST(request: Request) {
         {
           ...body.location,
           capturedAt: new Date(body.location.capturedAt),
+        },
+      ],
+      routePath: [
+        {
+          latitude: body.location.latitude,
+          longitude: body.location.longitude,
         },
       ],
       activities: [],

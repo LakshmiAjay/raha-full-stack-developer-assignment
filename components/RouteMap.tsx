@@ -38,6 +38,8 @@ function fitZoom(points: Coordinate[], width: number) {
 
 export default function RouteMap({
   routePoints,
+  pathPoints,
+  liveTrail,
   visits,
   active,
   tracking,
@@ -46,6 +48,8 @@ export default function RouteMap({
   sessionNumber,
 }: {
   routePoints: RoutePoint[];
+  pathPoints?: Coordinate[];
+  liveTrail?: RoutePoint[];
   visits: VisitMarker[];
   active: boolean;
   tracking: boolean;
@@ -68,8 +72,11 @@ export default function RouteMap({
   }, []);
 
   const map = useMemo(() => {
-    const coordinates = [
+    const recordedPath = pathPoints?.length ? pathPoints : routePoints,
+      coordinates = [
         ...routePoints,
+        ...recordedPath,
+        ...(active ? (liveTrail ?? []) : []),
         ...visits.map((visit) => visit.location),
         ...(active && currentLocation ? [currentLocation] : []),
       ],
@@ -106,31 +113,40 @@ export default function RouteMap({
       route = routePoints.map((point) => ({
         ...screenPoint(point),
         capturedAt: point.capturedAt,
-      }));
+      })),
+      path = recordedPath.map(screenPoint),
+      trail =
+        active && route.at(-1)
+          ? [route.at(-1)!, ...(liveTrail ?? []).map(screenPoint)]
+          : [];
     return {
       tiles,
       zoom,
       originX,
       originY,
       route,
+      path,
+      trail,
       currentLocation:
         active && currentLocation ? screenPoint(currentLocation) : null,
       visits: visits.map((visit) => ({ ...visit, ...screenPoint(visit.location) })),
     };
-  }, [active, currentLocation, routePoints, visits, width, zoomOffset]);
+  }, [
+    active,
+    currentLocation,
+    liveTrail,
+    pathPoints,
+    routePoints,
+    visits,
+    width,
+    zoomOffset,
+  ]);
 
   const start = map.route[0],
     lastSaved = map.route.at(-1),
     current = active ? map.currentLocation : lastSaved,
-    segments = map.route.slice(1).map((point, index) => ({
-      from: map.route[index],
-      to: point,
-      key: point.capturedAt,
-    })),
-    liveLeg =
-      active && lastSaved && current
-        ? `${lastSaved.x},${lastSaved.y} ${current.x},${current.y}`
-        : "";
+    recordedPath = map.path.map((point) => `${point.x},${point.y}`).join(" "),
+    livePath = map.trail.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
     <section className="card route-map-card">
@@ -194,31 +210,14 @@ export default function RouteMap({
           />
         ))}
         <svg aria-label="Recorded route pathway" className="route-overlay">
-          {segments.map((segment, index) => (
-            <g key={segment.key}>
-              <line
-                className="route-path-shadow"
-                x1={segment.from.x}
-                y1={segment.from.y}
-                x2={segment.to.x}
-                y2={segment.to.y}
-              />
-              <line
-                className={`route-path ${
-                  active && index === segments.length - 1
-                    ? "route-path-new"
-                    : ""
-                }`}
-                pathLength="1"
-                x1={segment.from.x}
-                y1={segment.from.y}
-                x2={segment.to.x}
-                y2={segment.to.y}
-              />
-            </g>
-          ))}
-          {liveLeg && tracking && (
-            <polyline className="live-route-leg" points={liveLeg} />
+          {recordedPath && (
+            <>
+              <polyline className="route-path-shadow" points={recordedPath} />
+              <polyline className="route-path" points={recordedPath} />
+            </>
+          )}
+          {livePath && tracking && (
+            <polyline className="live-route-leg" points={livePath} />
           )}
         </svg>
         {start && (
@@ -260,6 +259,10 @@ export default function RouteMap({
         </a>
       </div>
       <div className="route-legend">
+        <span><i className="legend-line recorded" /> Saved road path</span>
+        {active && tracking && (
+          <span><i className="legend-line live" /> Live device trail</span>
+        )}
         <span><i className="legend-dot start" /> Start</span>
         <span><i className="legend-dot customer" /> Lead meeting</span>
         {active && currentLocation ? (
