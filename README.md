@@ -68,6 +68,14 @@ For production, use a contracted routing service instead of OSRM's public demo s
 
 A browser could use `watchPosition`, batch samples, reject low-accuracy jumps, and upload periodically. In practice, mobile browsers throttle or stop background tabs, the OS may suspend them, battery usage is significant, and users can terminate the page. A production-grade solution should use a consent-led native app with background-location permissions, an offline queue, adaptive sampling based on motion, signed upload batches, retention controls, and clear on-duty/off-duty indicators. Raw trails should be access-limited and retained only as long as reimbursement or audit policy requires.
 
+## Responsive and progressive web app support
+
+The interface adapts across desktop, tablet, and phone layouts. On smaller screens the desktop sidebar becomes a persistent role-aware bottom navigation, dashboard grids collapse cleanly, wide reports remain horizontally scrollable, forms use single-column layouts, and dialogs respect the available viewport and safe-area insets.
+
+The production build is installable as a Progressive Web App (PWA). It includes a web app manifest, application icons, standalone display metadata, an account-menu **Install app** action when the browser exposes installation, and a service worker with a dedicated offline fallback. The service worker deliberately never caches API responses or authenticated page data.
+
+To test installation locally, run `npm run build` followed by `npm start`, open the HTTPS deployment (or localhost) in a supported browser, sign in, and choose **Install app** from the account menu. iOS Safari does not expose the custom install prompt; use **Share → Add to Home Screen** instead. Field actions still require a network connection and show the offline page when navigation cannot reach the server.
+
 ## Deployment
 
 Create a MongoDB Atlas database, add the environment variables in Vercel (including `DEFAULT_USER_PASSWORD=RahaDemo@2026` for the disposable assessment accounts), run the seed script once against Atlas, and deploy this repository as a Next.js project. Geolocation requires HTTPS outside localhost. After verification, replace the placeholder in the `Live demo` section with the deployed URL.

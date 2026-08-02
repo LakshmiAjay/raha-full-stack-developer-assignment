@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/NotificationBell";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
+import PwaInstallButton from "@/components/PwaInstallButton";
 export default function AppShell({
   name,
   role,
@@ -87,6 +88,7 @@ export default function AppShell({
                 >
                   <KeyRound size={15} /> Change password
                 </button>
+                <PwaInstallButton />
                 <button
                   className="profile-menu-item danger"
                   role="menuitem"
@@ -164,6 +166,33 @@ export default function AppShell({
         </aside>
         <main className="content">{children}</main>
       </div>
+      <nav className="mobile-nav" aria-label="Mobile workspace navigation">
+        {role === "associate" ? (
+          <>
+            <Link href="/today" className={path === "/today" ? "active" : ""}>
+              <CalendarDays size={19} /> <span>Today</span>
+            </Link>
+            <Link href="/travel" className={path === "/travel" ? "active" : ""}>
+              <Route size={19} /> <span>Travel</span>
+            </Link>
+            <Link href="/approvals" className={path === "/approvals" ? "active" : ""}>
+              <ShieldCheck size={19} /> <span>Approvals</span>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/team" className={path === "/team" ? "active" : ""}>
+              <LayoutDashboard size={19} /> <span>Overview</span>
+            </Link>
+            <Link href="/approvals" className={path === "/approvals" ? "active" : ""}>
+              <ShieldCheck size={19} /> <span>Approvals</span>
+            </Link>
+            <Link href="/users" className={path === "/users" ? "active" : ""}>
+              <Users size={19} /> <span>Associates</span>
+            </Link>
+          </>
+        )}
+      </nav>
     </div>
   );
 }
