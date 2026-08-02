@@ -18,6 +18,17 @@ Seed login accounts use the server-only `DEFAULT_USER_PASSWORD` value:
 - Branch head: `meera@raha.in`
 - Sales associate: `arjun@raha.in` (also `nisha@raha.in`, `vikram@raha.in`)
 
+### Seed data
+
+Run `npm run seed` to create a deterministic demonstration dataset containing:
+
+- 1 branch head.
+- 3 sales associates, all reporting to that branch head.
+- 5 leads, each with a name, contact, latitude, and longitude.
+- 15 completed historical activity days (5 per associate) with two visits per day, so the monthly CSV export contains data.
+
+The script verifies these counts after insertion and exits unsuccessfully if they do not match. It is a replacement seed: running it clears the application's existing users, leads, days, approvals, notifications, and work-policy collections before inserting the demonstration data.
+
 ## Data model
 
 - `users`: identity, password hash, role, branch, and manager relationship.
