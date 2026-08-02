@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   LogOut,
   Route,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -52,6 +53,12 @@ export default function AppShell({
                 >
                   <Route size={17} /> My travel
                 </Link>
+                <Link
+                  href="/approvals"
+                  className={`navitem ${path === "/approvals" ? "active" : ""}`}
+                >
+                  <ShieldCheck size={17} /> Approvals
+                </Link>
               </>
             ) : (
               <>
@@ -60,6 +67,12 @@ export default function AppShell({
                   className={`navitem ${path === "/team" ? "active" : ""}`}
                 >
                   <LayoutDashboard size={17} /> Branch overview
+                </Link>
+                <Link
+                  href="/approvals"
+                  className={`navitem ${path === "/approvals" ? "active" : ""}`}
+                >
+                  <ShieldCheck size={17} /> Approvals
                 </Link>
                 <div className="navitem">
                   <Users size={17} /> Associates

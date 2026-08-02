@@ -13,6 +13,8 @@ async function main() {
     db.collection("users").deleteMany({}),
     db.collection("leads").deleteMany({}),
     db.collection("days").deleteMany({}),
+    db.collection("approvals").deleteMany({}),
+    db.collection("workPolicies").deleteMany({}),
   ]);
   const branchId = new ObjectId(),
     passwordHash = await hash("Raha@123", 12),
@@ -93,6 +95,15 @@ async function main() {
     },
   ];
   await db.collection("leads").insertMany(leads);
+  await db.collection("workPolicies").insertOne({
+    managerId: headId,
+    branchId,
+    timezone: "Asia/Kolkata",
+    startTime: "09:00",
+    endTime: "18:00",
+    holidays: [],
+    updatedAt: new Date(),
+  });
   const now = new Date(),
     historic = [];
   for (let u = 0; u < associateIds.length; u++)
@@ -171,6 +182,15 @@ async function main() {
       ),
     db.collection("days").createIndex({ branchId: 1, localDate: 1 }),
     db.collection("leads").createIndex({ branchId: 1, name: 1 }),
+    db
+      .collection("approvals")
+      .createIndex({ managerId: 1, status: 1, createdAt: -1 }),
+    db
+      .collection("approvals")
+      .createIndex({ userId: 1, requestedDate: 1, type: 1, status: 1 }),
+    db
+      .collection("workPolicies")
+      .createIndex({ managerId: 1, branchId: 1 }, { unique: true }),
   ]);
   console.log("Seeded Raha Fielddesk");
   console.log("Head: meera@raha.in / Raha@123");

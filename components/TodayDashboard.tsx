@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RouteMap from "@/components/RouteMap";
+import Link from "next/link";
 import {
   BriefcaseBusiness,
   Check,
@@ -145,6 +146,7 @@ export default function TodayDashboard({ name }: { name: string }) {
     [trackingUnavailable, setTrackingUnavailable] = useState(false),
     [liveLocation, setLiveLocation] = useState<Loc | null>(null),
     [liveTrail, setLiveTrail] = useState<Loc[]>([]),
+    [approvalRequired, setApprovalRequired] = useState(false),
     [error, setError] = useState("");
   const latestLocationRef = useRef<Loc | null>(null);
   const load = useCallback(async () => {
@@ -324,6 +326,7 @@ export default function TodayDashboard({ name }: { name: string }) {
   async function action(url: string, payload: object) {
     setBusy(true);
     setError("");
+    setApprovalRequired(false);
     try {
       const res = await fetch(url, {
           method: "POST",
@@ -331,7 +334,10 @@ export default function TodayDashboard({ name }: { name: string }) {
           body: JSON.stringify(payload),
         }),
         json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) {
+        setApprovalRequired(Boolean(json.approvalRequired));
+        throw new Error(json.error);
+      }
       await load();
       return true;
     } catch (e) {
@@ -438,7 +444,16 @@ export default function TodayDashboard({ name }: { name: string }) {
           }).format(new Date())}
         </div>
       </div>
-      {error && <div className="notice">{error}</div>}
+      {error && (
+        <div className="notice">
+          {error}
+          {approvalRequired && (
+            <Link className="notice-link" href="/approvals">
+              View approval request
+            </Link>
+          )}
+        </div>
+      )}
       <div className="grid-main">
         <div>
           <section className="card card-pad status-card">
