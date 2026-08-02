@@ -1,6 +1,8 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { withLiveDistance } from "@/lib/distance";
 import { unauthorized } from "@/lib/http";
+import type { DaySession } from "@/lib/types";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled, demoUsers } from "@/lib/demo";
@@ -28,9 +30,13 @@ export async function GET(request: Request) {
             (!to || d.localDate <= to),
         )
         .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    const daysWithDistance = await Promise.all(days.map(withLiveDistance));
     return NextResponse.json({
       associates: users,
-      days: days.map((d) => ({ ...d, associateName: names.get(d.userId) })),
+      days: daysWithDistance.map((d) => ({
+        ...d,
+        associateName: names.get(d.userId),
+      })),
       demo: true,
     });
   }
@@ -57,15 +63,16 @@ export async function GET(request: Request) {
       ...(to && { $lte: to }),
     };
   const days = await database
-      .collection("days")
+      .collection<DaySession>("days")
       .find(dateFilter)
       .sort({ startedAt: -1 })
       .limit(100)
       .toArray(),
+    daysWithDistance = await Promise.all(days.map(withLiveDistance)),
     names = new Map(users.map((u) => [String(u._id), u.name]));
   return NextResponse.json({
     associates: users,
-    days: days.map((d) => ({
+    days: daysWithDistance.map((d) => ({
       ...d,
       associateName: names.get(String(d.userId)),
     })),
