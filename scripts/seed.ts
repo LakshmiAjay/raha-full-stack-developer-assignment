@@ -4,12 +4,20 @@ import { config } from "dotenv";
 import { defaultUserPassword } from "../lib/password";
 config({ path: ".env.local" });
 
+const SEED_COUNTS = {
+  branchHeads: 1,
+  associates: 3,
+  leads: 5,
+  historyDaysPerAssociate: 5,
+} as const;
+
 async function main() {
   const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017",
     databaseName = process.env.MONGODB_DB || "raha_fielddesk";
   const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db(databaseName);
+  try {
+    await client.connect();
+    const db = client.db(databaseName);
   await Promise.all([
     db.collection("users").deleteMany({}),
     db.collection("leads").deleteMany({}),
@@ -21,7 +29,10 @@ async function main() {
   const branchId = new ObjectId(),
     passwordHash = await hash(defaultUserPassword(), 12),
     headId = new ObjectId(),
-    associateIds = [new ObjectId(), new ObjectId(), new ObjectId()];
+    associateIds = Array.from(
+      { length: SEED_COUNTS.associates },
+      () => new ObjectId(),
+    );
   await db.collection("users").insertMany([
     {
       _id: headId,
@@ -112,7 +123,7 @@ async function main() {
   const now = new Date(),
     historic = [];
   for (let u = 0; u < associateIds.length; u++)
-    for (let d = 1; d <= 5; d++) {
+    for (let d = 1; d <= SEED_COUNTS.historyDaysPerAssociate; d++) {
       const date = new Date(now);
       date.setDate(now.getDate() - (d + u));
       date.setHours(9, 15, 0, 0);
@@ -200,10 +211,40 @@ async function main() {
       .collection("notifications")
       .createIndex({ recipientId: 1, branchId: 1, createdAt: -1 }),
   ]);
+  const [branchHeads, associates, leadCount, historyDays] = await Promise.all([
+    db.collection("users").countDocuments({ branchId, role: "head" }),
+    db.collection("users").countDocuments({
+      branchId,
+      role: "associate",
+      managerId: headId,
+    }),
+    db.collection("leads").countDocuments({ branchId }),
+    db.collection("days").countDocuments({ branchId }),
+  ]);
+  const expectedHistoryDays =
+    SEED_COUNTS.associates * SEED_COUNTS.historyDaysPerAssociate;
+  if (
+    branchHeads !== SEED_COUNTS.branchHeads ||
+    associates !== SEED_COUNTS.associates ||
+    leadCount !== SEED_COUNTS.leads ||
+    historyDays !== expectedHistoryDays
+  )
+    throw new Error(
+      `Seed verification failed: heads=${branchHeads}, associates=${associates}, leads=${leadCount}, historyDays=${historyDays}`,
+    );
   console.log("Seeded Raha Fielddesk");
-  console.log("Seeded branch head: meera@raha.in");
-  console.log("Seeded associate: arjun@raha.in");
-  await client.close();
+  console.log(`Branch heads: ${branchHeads} (meera@raha.in)`);
+  console.log(
+    `Sales associates: ${associates} (arjun@raha.in, nisha@raha.in, vikram@raha.in)`,
+  );
+  console.log(`Leads with contact and coordinates: ${leadCount}`);
+  console.log(`Historical activity days: ${historyDays}`);
+  } finally {
+    await client.close();
+  }
 }
 
-main();
+main().catch((error) => {
+  console.error("Seed failed", error);
+  process.exitCode = 1;
+});
