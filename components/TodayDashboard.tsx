@@ -537,7 +537,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                 <button
                   className="btn btn-primary"
                   onClick={start}
-                  disabled={busy}
+                  disabled={busy || !trackingAllowed}
                 >
                   <Clock3 size={16} />
                   {day ? `Start session ${nextSessionNumber}` : "Start day"}
