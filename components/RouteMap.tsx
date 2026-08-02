@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseBusiness, LocateFixed } from "lucide-react";
+import { BriefcaseBusiness, LocateFixed, Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Coordinate = { latitude: number; longitude: number };
@@ -41,14 +41,21 @@ export default function RouteMap({
   visits,
   active,
   tracking,
+  trackingUnavailable,
+  currentLocation,
+  sessionNumber,
 }: {
   routePoints: RoutePoint[];
   visits: VisitMarker[];
   active: boolean;
   tracking: boolean;
+  trackingUnavailable?: boolean;
+  currentLocation?: RoutePoint | null;
+  sessionNumber?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null),
-    [width, setWidth] = useState(720);
+    [width, setWidth] = useState(720),
+    [zoomOffset, setZoomOffset] = useState(0);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -64,11 +71,12 @@ export default function RouteMap({
     const coordinates = [
         ...routePoints,
         ...visits.map((visit) => visit.location),
+        ...(active && currentLocation ? [currentLocation] : []),
       ],
       usable = coordinates.length
         ? coordinates
         : [{ latitude: 17.385, longitude: 78.4867 }],
-      zoom = fitZoom(usable, width),
+      zoom = Math.max(3, Math.min(18, fitZoom(usable, width) + zoomOffset)),
       projected = usable.map((point) => project(point, zoom)),
       xs = projected.map((point) => point.x),
       ys = projected.map((point) => point.y),
@@ -95,38 +103,83 @@ export default function RouteMap({
         const world = project(point, zoom);
         return { x: world.x - originX, y: world.y - originY };
       },
-      route = routePoints.map(screenPoint);
+      route = routePoints.map((point) => ({
+        ...screenPoint(point),
+        capturedAt: point.capturedAt,
+      }));
     return {
       tiles,
       zoom,
       originX,
       originY,
       route,
+      currentLocation:
+        active && currentLocation ? screenPoint(currentLocation) : null,
       visits: visits.map((visit) => ({ ...visit, ...screenPoint(visit.location) })),
     };
-  }, [routePoints, visits, width]);
+  }, [active, currentLocation, routePoints, visits, width, zoomOffset]);
 
   const start = map.route[0],
-    current = map.route.at(-1),
-    path = map.route.map((point) => `${point.x},${point.y}`).join(" ");
+    lastSaved = map.route.at(-1),
+    current = active ? map.currentLocation : lastSaved,
+    segments = map.route.slice(1).map((point, index) => ({
+      from: map.route[index],
+      to: point,
+      key: point.capturedAt,
+    })),
+    liveLeg =
+      active && lastSaved && current
+        ? `${lastSaved.x},${lastSaved.y} ${current.x},${current.y}`
+        : "";
 
   return (
     <section className="card route-map-card">
       <div className="route-map-head">
         <div>
-          <span className="eyebrow">{active ? "Live route" : "Completed route"}</span>
+          <span className="eyebrow">
+            {sessionNumber ? `Session ${sessionNumber} · ` : ""}
+            {active ? "Live route" : "Completed route"}
+          </span>
           <h2 className="section-title">Pathway taken</h2>
         </div>
-        <div className={`tracking-chip ${tracking ? "active" : ""}`}>
+        <div
+          className={`tracking-chip ${tracking && currentLocation ? "active" : ""}`}
+        >
           <LocateFixed size={13} />
           {active
-            ? tracking
-              ? "Updating every 2 min"
-              : "Tracking paused"
+            ? !tracking
+              ? "Tracking paused"
+              : trackingUnavailable
+                ? "Location unavailable"
+                : currentLocation
+                  ? "Live · saves every 2 min"
+                  : "Finding device GPS"
             : `${routePoints.length} route points`}
         </div>
       </div>
       <div className="route-map" ref={containerRef} style={{ height: MAP_HEIGHT }}>
+        <div className="map-zoom-controls" aria-label="Map zoom controls">
+          <button
+            className="map-zoom-button"
+            type="button"
+            aria-label="Zoom in"
+            title="Zoom in"
+            disabled={map.zoom >= 18}
+            onClick={() => setZoomOffset((value) => Math.min(15, value + 1))}
+          >
+            <Plus size={17} />
+          </button>
+          <button
+            className="map-zoom-button"
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out"
+            disabled={map.zoom <= 3}
+            onClick={() => setZoomOffset((value) => Math.max(-15, value - 1))}
+          >
+            <Minus size={17} />
+          </button>
+        </div>
         {map.tiles.map((tile) => (
           <img
             alt=""
@@ -141,11 +194,31 @@ export default function RouteMap({
           />
         ))}
         <svg aria-label="Recorded route pathway" className="route-overlay">
-          {path && (
-            <>
-              <polyline className="route-path-shadow" points={path} />
-              <polyline className="route-path" points={path} />
-            </>
+          {segments.map((segment, index) => (
+            <g key={segment.key}>
+              <line
+                className="route-path-shadow"
+                x1={segment.from.x}
+                y1={segment.from.y}
+                x2={segment.to.x}
+                y2={segment.to.y}
+              />
+              <line
+                className={`route-path ${
+                  active && index === segments.length - 1
+                    ? "route-path-new"
+                    : ""
+                }`}
+                pathLength="1"
+                x1={segment.from.x}
+                y1={segment.from.y}
+                x2={segment.to.x}
+                y2={segment.to.y}
+              />
+            </g>
+          ))}
+          {liveLeg && tracking && (
+            <polyline className="live-route-leg" points={liveLeg} />
           )}
         </svg>
         {start && (
@@ -165,8 +238,11 @@ export default function RouteMap({
         ))}
         {current && (
           <div
-            className={`map-marker ${active ? "current" : "end"}`}
+            aria-label={active ? "My current device location" : "Session end"}
+            className={`map-marker ${active ? "current live-device" : "end"}`}
+            role="img"
             style={{ left: current.x, top: current.y }}
+            title={active ? "My current device location" : "Session end"}
           >
             {active ? <LocateFixed size={14} /> : "E"}
           </div>
@@ -186,7 +262,11 @@ export default function RouteMap({
       <div className="route-legend">
         <span><i className="legend-dot start" /> Start</span>
         <span><i className="legend-dot customer" /> Lead meeting</span>
-        <span><i className={`legend-dot ${active ? "current" : "end"}`} /> {active ? "Latest position" : "End"}</span>
+        {active && currentLocation ? (
+          <span><i className="legend-dot current" /> My live location</span>
+        ) : !active ? (
+          <span><i className="legend-dot end" /> Session end</span>
+        ) : null}
       </div>
     </section>
   );

@@ -5,6 +5,7 @@ import { readJson } from "@/lib/client-http";
 type Day = {
   _id: string;
   localDate: string;
+  sessionNumber?: number;
   status: "active" | "completed";
   startedAt: string;
   endedAt?: string;
@@ -69,11 +70,11 @@ export default function TravelDashboard() {
             {total.toFixed(1)} <small>km</small>
           </div>
           <span className="muted" style={{ fontSize: 12 }}>
-            across completed days
+            across completed sessions
           </span>
         </div>
         <div className="card metric">
-          <span className="eyebrow">Days recorded</span>
+          <span className="eyebrow">Sessions recorded</span>
           <div className="metric-value">{days.length}</div>
           <span className="muted" style={{ fontSize: 12 }}>
             {completed.length} completed
@@ -119,6 +120,9 @@ export default function TravelDashboard() {
                           year: "numeric",
                         },
                       )}
+                      <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>
+                        Session {day.sessionNumber ?? 1}
+                      </div>
                     </td>
                     <td>
                       {day.activities.length}

@@ -86,6 +86,7 @@ export type DemoDay = {
   userId: string;
   branchId: string;
   localDate: string;
+  sessionNumber?: number;
   timezone: string;
   status: "active" | "completed";
   startedAt: Date;
@@ -128,6 +129,7 @@ function history(): DemoDay[] {
         localDate: new Intl.DateTimeFormat("en-CA", {
           timeZone: "Asia/Kolkata",
         }).format(date),
+        sessionNumber: 1,
         timezone: "Asia/Kolkata",
         status: "completed",
         startedAt: p(9, 17.4504, 78.3808).capturedAt,

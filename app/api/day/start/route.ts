@@ -21,11 +21,16 @@ export async function POST(request: Request) {
           { error: "Your workday is already running" },
           { status: 409 },
         );
+      const sessionNumber =
+        demoDays().filter(
+          (day) => day.userId === s.userId && day.localDate === localDate,
+        ).length + 1;
       const day = {
         _id: demoId(),
         userId: s.userId,
         branchId: s.branchId,
         localDate,
+        sessionNumber,
         timezone: body.timezone,
         status: "active" as const,
         startedAt: now,
@@ -43,21 +48,29 @@ export async function POST(request: Request) {
       };
       demoDays().push(day);
       logCapturedLocation("day-start", s.userId, body.location);
-      return NextResponse.json({ _id: day._id }, { status: 201 });
+      return NextResponse.json(
+        { _id: day._id, sessionNumber },
+        { status: 201 },
+      );
     }
     const database = await db(),
+      userId = new ObjectId(s.userId),
       active = await database
         .collection("days")
-        .findOne({ userId: new ObjectId(s.userId), status: "active" });
+        .findOne({ userId, status: "active" });
     if (active)
       return NextResponse.json(
         { error: "Your workday is already running" },
         { status: 409 },
       );
+    const sessionNumber =
+      (await database.collection("days").countDocuments({ userId, localDate })) +
+      1;
     const result = await database.collection("days").insertOne({
-      userId: new ObjectId(s.userId),
+      userId,
       branchId: new ObjectId(s.branchId),
       localDate,
+      sessionNumber,
       timezone: body.timezone,
       status: "active",
       startedAt: now,
@@ -74,7 +87,10 @@ export async function POST(request: Request) {
       activities: [],
     });
     logCapturedLocation("day-start", s.userId, body.location);
-    return NextResponse.json({ _id: result.insertedId }, { status: 201 });
+    return NextResponse.json(
+      { _id: result.insertedId, sessionNumber },
+      { status: 201 },
+    );
   } catch (e) {
     return apiError(e);
   }

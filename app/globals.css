@@ -235,6 +235,43 @@ textarea {
   user-select: none;
   width: 256px;
 }
+.map-zoom-controls {
+  background: white;
+  border: 1px solid rgba(21, 42, 39, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(21, 42, 39, 0.16);
+  left: 12px;
+  overflow: hidden;
+  position: absolute;
+  top: 12px;
+  z-index: 5;
+}
+.map-zoom-button {
+  align-items: center;
+  background: white;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  width: 34px;
+}
+.map-zoom-button + .map-zoom-button {
+  border-top: 1px solid var(--line);
+}
+.map-zoom-button:hover:not(:disabled) {
+  background: #f6f3ec;
+}
+.map-zoom-button:disabled {
+  color: #aeb5b1;
+  cursor: not-allowed;
+}
+.map-zoom-button:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: -2px;
+}
 .route-overlay {
   height: 100%;
   inset: 0;
@@ -256,6 +293,22 @@ textarea {
 .route-path {
   stroke: var(--red);
   stroke-width: 4;
+}
+.route-path-new {
+  animation: route-segment-draw 1.4s ease-out both;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.live-route-leg {
+  fill: none;
+  opacity: 0.8;
+  stroke: #2478d4;
+  stroke-dasharray: 4 6;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+@keyframes route-segment-draw {
+  to { stroke-dashoffset: 0; }
 }
 .map-marker {
   align-items: center;
@@ -284,12 +337,17 @@ textarea {
 }
 .map-marker.current,
 .legend-dot.current {
-  background: #36a87a;
+  background: #2478d4;
   color: white;
+}
+.map-marker.live-device {
+  box-shadow: 0 2px 10px rgba(36, 120, 212, 0.45);
+  transition: left 1.4s linear, top 1.4s linear;
+  z-index: 4;
 }
 .map-marker.current:after {
   animation: location-pulse 1.8s infinite;
-  border: 2px solid #36a87a;
+  border: 2px solid #2478d4;
   border-radius: 50%;
   content: "";
   inset: -7px;

@@ -24,6 +24,7 @@ type Day = {
   userId: string;
   associateName: string;
   localDate: string;
+  sessionNumber?: number;
   status: "active" | "completed";
   startedAt: string;
   endedAt?: string;
@@ -235,6 +236,9 @@ export default function TeamDashboard({ name }: { name: string }) {
                         "en-IN",
                         { day: "numeric", month: "short", year: "numeric" },
                       )}
+                      <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>
+                        Session {d.sessionNumber ?? 1}
+                      </div>
                     </td>
                     <td>
                       {d.activities.length}
@@ -313,7 +317,7 @@ export default function TeamDashboard({ name }: { name: string }) {
                           })}
                         </strong>
                         <div className="muted history-summary">
-                          {day.activities.length} visit
+                          Session {day.sessionNumber ?? 1} · {day.activities.length} visit
                           {day.activities.length === 1 ? "" : "s"} ·{" "}
                           {day.totalDistanceKm?.toFixed(1) ?? "—"} km
                           {day.status === "active" ? " live estimate" : ""}

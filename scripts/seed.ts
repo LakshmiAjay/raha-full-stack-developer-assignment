@@ -119,6 +119,7 @@ async function main() {
         userId: associateIds[u],
         branchId,
         localDate,
+        sessionNumber: 1,
         timezone: "Asia/Kolkata",
         status: "completed",
         startedAt: p(17.4504, 78.3808, 9).capturedAt,

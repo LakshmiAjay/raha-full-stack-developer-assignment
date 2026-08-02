@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import RouteMap from "@/components/RouteMap";
 import {
   BriefcaseBusiness,
@@ -27,6 +27,8 @@ type Activity = {
 };
 type Day = {
   _id: string;
+  sessionNumber?: number;
+  sessionsToday?: number;
   status: "active" | "completed";
   startedAt: string;
   endedAt?: string;
@@ -35,6 +37,7 @@ type Day = {
   routeSamples?: Loc[];
   activities: Activity[];
   totalDistanceKm?: number;
+  totalDistanceTodayKm?: number;
   distanceSource?: string;
 };
 const TARGET_ACCURACY_METERS = 100,
@@ -125,7 +128,10 @@ export default function TodayDashboard({ name }: { name: string }) {
     [busy, setBusy] = useState(false),
     [trackingAllowed, setTrackingAllowed] = useState(false),
     [trackingStatus, setTrackingStatus] = useState(""),
+    [trackingUnavailable, setTrackingUnavailable] = useState(false),
+    [liveLocation, setLiveLocation] = useState<Loc | null>(null),
     [error, setError] = useState("");
+  const latestLocationRef = useRef<Loc | null>(null);
   const load = useCallback(async () => {
     const params = new URLSearchParams({
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -164,18 +170,75 @@ export default function TodayDashboard({ name }: { name: string }) {
   }, []);
   useEffect(() => {
     if (day?.status !== "active" || !trackingAllowed) {
+      latestLocationRef.current = null;
+      setLiveLocation(null);
+      setTrackingUnavailable(false);
       setTrackingStatus(
         day?.status === "active" ? "Route tracking is paused" : "",
       );
       return;
     }
     let cancelled = false,
-      timerId: number;
+      timerId: number,
+      watchId: number | undefined;
+    latestLocationRef.current = null;
+    setLiveLocation(null);
+    setTrackingUnavailable(false);
+
+    if (!navigator.geolocation) {
+      setTrackingUnavailable(true);
+      setTrackingStatus("Location is not supported on this device");
+      return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (cancelled) return;
+        const location = positionToLocation(position);
+        if (location.accuracy > MAX_ACCEPTED_ACCURACY_METERS) {
+          setTrackingStatus(
+            `Waiting for a precise GPS fix · current accuracy ±${location.accuracy} m`,
+          );
+          return;
+        }
+        latestLocationRef.current = location;
+        setLiveLocation(location);
+        setTrackingUnavailable(false);
+        setTrackingStatus(
+          `Live device location ±${location.accuracy} m · route saves every 2 minutes`,
+        );
+      },
+      (locationError) => {
+        if (cancelled) return;
+        setTrackingUnavailable(
+          locationError.code === locationError.PERMISSION_DENIED,
+        );
+        setTrackingStatus(
+          locationError.code === locationError.PERMISSION_DENIED
+            ? "Precise location permission was denied · route tracking paused"
+            : "Waiting for the next device location fix…",
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: LOCATION_TIMEOUT_MS,
+      },
+    );
+
     const scheduleNext = () => {
       timerId = window.setTimeout(async () => {
-        setTrackingStatus("Getting the next precise route point…");
+        setTrackingStatus("Saving the latest precise route point…");
         try {
-          const location = await locate();
+          let location = latestLocationRef.current;
+          if (
+            !location ||
+            Date.now() - new Date(location.capturedAt).getTime() > 30000
+          ) {
+            location = await locate();
+            latestLocationRef.current = location;
+            setLiveLocation(location);
+          }
           if (cancelled) return;
           const res = await fetch("/api/day/location", {
               method: "POST",
@@ -193,7 +256,11 @@ export default function TodayDashboard({ name }: { name: string }) {
                   }
                 : current,
             );
-          setTrackingStatus("Route updated · next point in 2 minutes");
+          setTrackingStatus(
+            json.recorded
+              ? `Route updated from device GPS ±${location.accuracy} m · next save in 2 minutes`
+              : "Live location on · next route save in 2 minutes",
+          );
         } catch (trackingError) {
           if (!cancelled)
             setTrackingStatus(
@@ -206,11 +273,12 @@ export default function TodayDashboard({ name }: { name: string }) {
         }
       }, ROUTE_SAMPLE_INTERVAL_MS);
     };
-    setTrackingStatus("Route tracking on · next point in 2 minutes");
+    setTrackingStatus("Starting live device location…");
     scheduleNext();
     return () => {
       cancelled = true;
       window.clearTimeout(timerId);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
   }, [day?._id, day?.status, trackingAllowed]);
   function changeTrackingConsent(allowed: boolean) {
@@ -278,6 +346,9 @@ export default function TodayDashboard({ name }: { name: string }) {
     }
   }
   const active = day?.status === "active",
+    canStart = !day || day.status === "completed",
+    currentSessionNumber = day?.sessionNumber ?? (day ? 1 : 0),
+    nextSessionNumber = currentSessionNumber + 1,
     routePoints = day
       ? day.routeSamples?.length
         ? day.routeSamples
@@ -343,11 +414,11 @@ export default function TodayDashboard({ name }: { name: string }) {
               <div>
                 <div>
                   <span className={`status-dot ${active ? "live" : ""}`} />
-                  {active
-                    ? "Workday in progress"
-                    : day?.status === "completed"
-                      ? "Workday completed"
-                      : "Not started"}
+                  {day
+                    ? `Session ${currentSessionNumber} · ${
+                        active ? "in progress" : "completed"
+                      }`
+                    : "Not started"}
                 </div>
                 <div className="big-time">
                   {day
@@ -368,14 +439,14 @@ export default function TodayDashboard({ name }: { name: string }) {
               <Navigation size={24} color="var(--red)" />
             </div>
             <div className="actions">
-              {!day ? (
+              {canStart ? (
                 <button
                   className="btn btn-primary"
                   onClick={start}
                   disabled={busy || !trackingAllowed}
                 >
                   <Clock3 size={16} />
-                  Start day
+                  {day ? `Start session ${nextSessionNumber}` : "Start day"}
                 </button>
               ) : day.status === "active" ? (
                 <>
@@ -398,7 +469,7 @@ export default function TodayDashboard({ name }: { name: string }) {
                 </>
               ) : null}
             </div>
-            {(!day || day.status === "active") && (
+            {(canStart || active) && (
               <label className="route-consent">
                 <input
                   type="checkbox"
@@ -409,7 +480,9 @@ export default function TodayDashboard({ name }: { name: string }) {
                 />
                 <span>
                   Record my route every 2 minutes while this page is active.
-                  {day ? " You can pause this at any time." : " Required to start the day."}
+                  {active
+                    ? " You can pause this at any time."
+                    : ` Required to start ${day ? `session ${nextSessionNumber}` : "the day"}.`}
                 </span>
               </label>
             )}
@@ -423,12 +496,16 @@ export default function TodayDashboard({ name }: { name: string }) {
               visits={day.activities}
               active={active}
               tracking={active && trackingAllowed}
+              trackingUnavailable={trackingUnavailable}
+              currentLocation={active ? liveLocation : null}
+              sessionNumber={currentSessionNumber || undefined}
             />
           )}
           <section className="card card-pad" style={{ marginTop: 22 }}>
             <div className="status-row">
               <h2 className="section-title">Day timeline</h2>
               <span className="muted" style={{ fontSize: 12 }}>
+                {day ? `Session ${currentSessionNumber} · ` : ""}
                 {events.length} stops
               </span>
             </div>
@@ -470,11 +547,12 @@ export default function TodayDashboard({ name }: { name: string }) {
           <section className="card metric">
             <span className="eyebrow">Distance today</span>
             <div className="metric-value">
-              {day?.totalDistanceKm?.toFixed(1) ?? "0.0"} <small>km</small>
+              {day?.totalDistanceTodayKm?.toFixed(1) ?? "0.0"} <small>km</small>
             </div>
             <p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>
-              {day?.distanceSource ??
-                "Calculated after your day ends, stop by stop."}
+              {day
+                ? `${day.sessionsToday ?? 1} session${(day.sessionsToday ?? 1) === 1 ? "" : "s"} today · latest session: ${day.distanceSource ?? "distance pending"}`
+                : "Starts calculating live when you begin your day."}
             </p>
           </section>
           <section className="card card-pad" style={{ marginTop: 22 }}>

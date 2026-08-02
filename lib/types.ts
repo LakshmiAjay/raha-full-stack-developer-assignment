@@ -37,6 +37,7 @@ export type DaySession = {
   userId: ObjectId;
   branchId: ObjectId;
   localDate: string;
+  sessionNumber?: number;
   timezone: string;
   status: "active" | "completed";
   startedAt: Date;
