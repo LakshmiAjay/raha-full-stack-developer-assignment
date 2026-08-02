@@ -99,6 +99,14 @@ export type DemoDay = {
   routeSamples?: LocationPoint[];
   routePath?: RouteCoordinate[];
   activities: DemoActivity[];
+  breaks?: {
+    _id: string;
+    startedAt: Date;
+    plannedMinutes: number;
+    autoEndsAt: Date;
+    endedAt?: Date;
+    durationMinutes?: number;
+  }[];
   endedAt?: Date;
   endLocation?: LocationPoint;
   totalDistanceKm?: number;
@@ -190,6 +198,7 @@ const state = globalThis as typeof globalThis & {
     timezone: string;
     startTime: string;
     endTime: string;
+    breakMinutes: number;
     saturdayHoliday: boolean;
     sundayHoliday: boolean;
     holidays: { date: string; name: string }[];
@@ -214,6 +223,7 @@ export const demoPolicy = () =>
     timezone: "Asia/Kolkata",
     startTime: "09:00",
     endTime: "18:00",
+    breakMinutes: 60,
     saturdayHoliday: false,
     sundayHoliday: false,
     holidays: [],

@@ -15,6 +15,7 @@ export type PolicyView = {
   timezone: string;
   startTime: string;
   endTime: string;
+  breakMinutes: number;
   saturdayHoliday: boolean;
   sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
@@ -38,6 +39,7 @@ export async function policyForAssociate(userId: string, branchId: string): Prom
       ...policy,
       managerId,
       branchId,
+      breakMinutes: Number(policy.breakMinutes ?? 60),
       saturdayHoliday: Boolean(policy.saturdayHoliday),
       sundayHoliday: Boolean(policy.sundayHoliday),
     };
@@ -52,6 +54,7 @@ export async function policyForAssociate(userId: string, branchId: string): Prom
     timezone: String(stored?.timezone ?? "Asia/Kolkata"),
     startTime: String(stored?.startTime ?? "09:00"),
     endTime: String(stored?.endTime ?? "18:00"),
+    breakMinutes: Number(stored?.breakMinutes ?? 60),
     saturdayHoliday: Boolean(stored?.saturdayHoliday),
     sundayHoliday: Boolean(stored?.sundayHoliday),
     holidays: (stored?.holidays as PolicyView["holidays"] | undefined) ?? [],
@@ -96,6 +99,41 @@ export async function hasApproval(
       requestedDate,
       status: "approved",
     }),
+  );
+}
+
+export async function approvedBreakExtensionMinutes(
+  userId: string,
+  requestedDate: string,
+) {
+  if (demoEnabled())
+    return demoApprovals()
+      .filter(
+        (request) =>
+          request.userId === userId &&
+          request.type === "break_extension" &&
+          request.requestedDate === requestedDate &&
+          request.status === "approved",
+      )
+      .reduce(
+        (total, request) =>
+          total + Number(request.payload?.additionalMinutes ?? 0),
+        0,
+      );
+  const rows = await (await db())
+    .collection("approvals")
+    .find({
+      userId: new ObjectId(userId),
+      type: "break_extension",
+      requestedDate,
+      status: "approved",
+    })
+    .project({ payload: 1 })
+    .toArray();
+  return rows.reduce(
+    (total, request) =>
+      total + Number(request.payload?.additionalMinutes ?? 0),
+    0,
   );
 }
 

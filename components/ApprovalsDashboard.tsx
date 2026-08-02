@@ -7,7 +7,8 @@ type ApprovalType =
   | "lead_creation"
   | "holiday_work"
   | "session_start"
-  | "session_end";
+  | "session_end"
+  | "break_extension";
 type Approval = {
   _id: string;
   type: ApprovalType;
@@ -21,6 +22,7 @@ type Approval = {
     contact?: string;
     latitude?: number;
     longitude?: number;
+    additionalMinutes?: number;
   };
   createdAt: string;
   decisionNote?: string;
@@ -29,6 +31,7 @@ type Policy = {
   timezone: string;
   startTime: string;
   endTime: string;
+  breakMinutes: number;
   saturdayHoliday: boolean;
   sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
@@ -38,6 +41,7 @@ const typeLabels: Record<ApprovalType, string> = {
   holiday_work: "Holiday work",
   session_start: "Session start",
   session_end: "Session end",
+  break_extension: "Extra break time",
 };
 function today() {
   const date = new Date();
@@ -56,6 +60,7 @@ export default function ApprovalsDashboard({
       timezone: "Asia/Kolkata",
       startTime: "09:00",
       endTime: "18:00",
+      breakMinutes: 60,
       saturdayHoliday: false,
       sundayHoliday: false,
       holidays: [],
@@ -80,6 +85,7 @@ export default function ApprovalsDashboard({
       ...policyJson,
       saturdayHoliday: Boolean(policyJson.saturdayHoliday),
       sundayHoliday: Boolean(policyJson.sundayHoliday),
+      breakMinutes: Number(policyJson.breakMinutes ?? 60),
     });
   }, []);
   useEffect(() => {
@@ -120,6 +126,11 @@ export default function ApprovalsDashboard({
           requestedDate: form.get("requestedDate"),
           requestedTime: form.get("requestedTime") || undefined,
           reason: form.get("reason"),
+          ...(requestType === "break_extension" && {
+            payload: {
+              additionalMinutes: form.get("additionalMinutes"),
+            },
+          }),
         },
         "Pre-approval request sent to your manager.",
       )
@@ -223,11 +234,16 @@ export default function ApprovalsDashboard({
                     <option value="holiday_work">Working on a holiday</option>
                     <option value="session_start">Start outside the work window</option>
                     <option value="session_end">End outside the work window</option>
+                    <option value="break_extension">Additional break time</option>
                   </select>
                 </div>
                 <div className="approval-two-col">
                   <div className="field"><label>Date</label><input className="input" name="requestedDate" type="date" min={today()} required /></div>
-                  <div className="field"><label>Expected time</label><input className="input" name="requestedTime" type="time" /></div>
+                  {requestType === "break_extension" ? (
+                    <div className="field"><label>Additional minutes</label><input className="input" name="additionalMinutes" type="number" min="5" max="240" step="5" defaultValue="15" required /></div>
+                  ) : (
+                    <div className="field"><label>Expected time</label><input className="input" name="requestedTime" type="time" /></div>
+                  )}
                 </div>
                 <div className="field"><label>Reason</label><textarea className="input" name="reason" required minLength={3} placeholder="Why is this exception needed?" /></div>
                 <button className="btn btn-primary" disabled={busy}><Clock3 size={16} /> Request pre-approval</button>
@@ -262,6 +278,24 @@ export default function ApprovalsDashboard({
               <div className="approval-two-col">
                 <div className="field"><label>Start time</label><input className="input" type="time" value={policy.startTime} onChange={(e) => setPolicy({ ...policy, startTime: e.target.value })} required /></div>
                 <div className="field"><label>End time</label><input className="input" type="time" value={policy.endTime} onChange={(e) => setPolicy({ ...policy, endTime: e.target.value })} required /></div>
+              </div>
+              <div className="field">
+                <label>Daily break allowance (minutes)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  max="480"
+                  step="5"
+                  value={policy.breakMinutes}
+                  onChange={(event) =>
+                    setPolicy({
+                      ...policy,
+                      breakMinutes: Number(event.target.value),
+                    })
+                  }
+                  required
+                />
               </div>
               <div className="weekend-options">
                 <label className="policy-checkbox">
@@ -346,6 +380,7 @@ function RequestCard({ request, role, busy, decide }: {
     </div>
     {request.associateName && <div className="request-person">{request.associateName}</div>}
     {request.type === "lead_creation" && <div className="request-detail"><strong>{request.payload?.name}</strong><br />{request.payload?.contact}<br />{request.payload?.latitude}, {request.payload?.longitude}</div>}
+    {request.type === "break_extension" && <div className="request-detail"><strong>{request.payload?.additionalMinutes} additional minutes</strong></div>}
     {request.requestedDate && <div className="request-detail">{new Date(`${request.requestedDate}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}{request.requestedTime ? ` · ${request.requestedTime}` : ""}</div>}
     <p>{request.reason}</p>
     {request.decisionNote && <div className="decision-note">Manager note: {request.decisionNote}</div>}

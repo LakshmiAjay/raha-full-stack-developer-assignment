@@ -4,7 +4,8 @@ export type ApprovalType =
   | "lead_creation"
   | "holiday_work"
   | "session_start"
-  | "session_end";
+  | "session_end"
+  | "break_extension";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type ApprovalRequest = {
   _id: ObjectId;
@@ -28,6 +29,7 @@ export type WorkPolicy = {
   timezone: string;
   startTime: string;
   endTime: string;
+  breakMinutes: number;
   saturdayHoliday: boolean;
   sundayHoliday: boolean;
   holidays: { date: string; name: string }[];
@@ -79,6 +81,14 @@ export type DaySession = {
   routeSamples?: LocationPoint[];
   routePath?: RouteCoordinate[];
   activities: Activity[];
+  breaks?: {
+    _id: ObjectId;
+    startedAt: Date;
+    plannedMinutes: number;
+    autoEndsAt: Date;
+    endedAt?: Date;
+    durationMinutes?: number;
+  }[];
   endedAt?: Date;
   endLocation?: LocationPoint;
   totalDistanceKm?: number;

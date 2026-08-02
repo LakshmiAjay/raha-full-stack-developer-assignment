@@ -14,6 +14,7 @@ import {
   hasApproval,
   policyForAssociate,
 } from "@/lib/approvals";
+import { effectiveActiveBreak } from "@/lib/breaks";
 export async function POST(request: Request) {
   try {
     const s = await requireSession("associate");
@@ -58,6 +59,11 @@ export async function POST(request: Request) {
           { error: "There is no active workday to end" },
           { status: 409 },
         );
+      if (effectiveActiveBreak(day))
+        return NextResponse.json(
+          { error: "End your break before ending the day" },
+          { status: 409 },
+        );
       const distance = await routeDetails(dayRoutePoints(day, endLocation));
       Object.assign(day, {
         status: "completed",
@@ -81,6 +87,11 @@ export async function POST(request: Request) {
     if (!day)
       return NextResponse.json(
         { error: "There is no active workday to end" },
+        { status: 409 },
+      );
+    if (effectiveActiveBreak(day))
+      return NextResponse.json(
+        { error: "End your break before ending the day" },
         { status: 409 },
       );
     const distance = await routeDetails(dayRoutePoints(day, endLocation));

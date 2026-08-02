@@ -7,6 +7,11 @@ import type { DaySession } from "@/lib/types";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { demoDays, demoEnabled } from "@/lib/demo";
+import {
+  approvedBreakExtensionMinutes,
+  policyForAssociate,
+} from "@/lib/approvals";
+import { breakSummary } from "@/lib/breaks";
 function requestedTimeZone(request: Request) {
   const timeZone = new URL(request.url).searchParams.get("timezone");
   if (!timeZone) return "Asia/Kolkata";
@@ -26,9 +31,12 @@ export async function GET(request: Request) {
       .filter((day) => day.userId === s.userId && day.localDate === localDate)
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
     if (!days.length) return NextResponse.json(null);
-    const sessions = await Promise.all(days.map(withLiveDistance));
+    const sessions = await Promise.all(days.map(withLiveDistance)),
+      policy = await policyForAssociate(s.userId, s.branchId),
+      extension = await approvedBreakExtensionMinutes(s.userId, localDate);
     return NextResponse.json({
       ...sessions[0],
+      ...breakSummary(days, policy.breakMinutes + extension),
       sessionsToday: sessions.length,
       totalDistanceTodayKm:
         Math.round(
@@ -45,9 +53,12 @@ export async function GET(request: Request) {
     .sort({ startedAt: -1 })
     .toArray();
   if (!days.length) return NextResponse.json(null);
-  const sessions = await Promise.all(days.map(withLiveDistance));
+  const sessions = await Promise.all(days.map(withLiveDistance)),
+    policy = await policyForAssociate(s.userId, s.branchId),
+    extension = await approvedBreakExtensionMinutes(s.userId, localDate);
   return NextResponse.json({
     ...sessions[0],
+    ...breakSummary(days, policy.breakMinutes + extension),
     sessionsToday: sessions.length,
     totalDistanceTodayKm:
       Math.round(

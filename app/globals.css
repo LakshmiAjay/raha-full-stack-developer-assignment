@@ -594,6 +594,10 @@ textarea.input {
   margin-left: 8px;
   text-decoration: underline;
 }
+.break-request-link {
+  font-size: 12px;
+  margin-left: 0;
+}
 .date-chip {
   align-items: center;
   display: inline-flex;

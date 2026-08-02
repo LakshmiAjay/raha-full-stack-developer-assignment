@@ -18,6 +18,7 @@ export async function GET() {
       ...policy,
       saturdayHoliday: Boolean(policy.saturdayHoliday),
       sundayHoliday: Boolean(policy.sundayHoliday),
+      breakMinutes: Number(policy.breakMinutes ?? 60),
     });
   }
   const stored = await (await db()).collection("workPolicies").findOne({
@@ -30,6 +31,7 @@ export async function GET() {
     timezone: String(stored?.timezone ?? "Asia/Kolkata"),
     startTime: String(stored?.startTime ?? "09:00"),
     endTime: String(stored?.endTime ?? "18:00"),
+    breakMinutes: Number(stored?.breakMinutes ?? 60),
     saturdayHoliday: Boolean(stored?.saturdayHoliday),
     sundayHoliday: Boolean(stored?.sundayHoliday),
     holidays: stored?.holidays ?? [],

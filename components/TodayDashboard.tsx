@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   Check,
   Clock3,
+  Coffee,
   MapPin,
   Navigation,
   Plus,
@@ -41,6 +42,12 @@ type Day = {
   totalDistanceKm?: number;
   totalDistanceTodayKm?: number;
   distanceSource?: string;
+  onBreak?: boolean;
+  activeBreakStartedAt?: string;
+  activeBreakEndsAt?: string;
+  breakUsedMinutesToday?: number;
+  breakAllowanceMinutesToday?: number;
+  breakRemainingMinutesToday?: number;
 };
 const TARGET_ACCURACY_METERS = 100,
   MAX_ACCEPTED_ACCURACY_METERS = 250,
@@ -186,13 +193,17 @@ export default function TodayDashboard({ name }: { name: string }) {
     setTrackingAllowed(localStorage.getItem(ROUTE_CONSENT_KEY) === "true");
   }, []);
   useEffect(() => {
-    if (day?.status !== "active" || !trackingAllowed) {
+    if (day?.status !== "active" || !trackingAllowed || day.onBreak) {
       latestLocationRef.current = null;
       setLiveLocation(null);
       setLiveTrail([]);
       setTrackingUnavailable(false);
       setTrackingStatus(
-        day?.status === "active" ? "Route tracking is paused" : "",
+        day?.onBreak
+          ? "Break in progress · location tracking is paused"
+          : day?.status === "active"
+            ? "Route tracking is paused"
+            : "",
       );
       return;
     }
@@ -303,7 +314,20 @@ export default function TodayDashboard({ name }: { name: string }) {
       window.clearTimeout(timerId);
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
-  }, [day?._id, day?.status, load, trackingAllowed]);
+  }, [day?._id, day?.status, day?.onBreak, load, trackingAllowed]);
+
+  useEffect(() => {
+    if (!day?.onBreak || !day.activeBreakEndsAt) return;
+    const delay = Math.max(
+        0,
+        new Date(day.activeBreakEndsAt).getTime() - Date.now(),
+      ),
+      timer = window.setTimeout(async () => {
+        await fetch("/api/day/break/end", { method: "POST" });
+        await load();
+      }, delay + 250);
+    return () => window.clearTimeout(timer);
+  }, [day?.activeBreakEndsAt, day?.onBreak, load]);
 
   async function currentActionLocation() {
     const live = latestLocationRef.current;
@@ -365,6 +389,23 @@ export default function TodayDashboard({ name }: { name: string }) {
     } catch (e) {
       setError((e as Error).message);
     }
+  }
+  async function startBreak() {
+    const maximum = Math.floor(day?.breakRemainingMinutesToday ?? 0),
+      value = window.prompt(
+        `How many minutes? You have ${maximum} minute${maximum === 1 ? "" : "s"} remaining today.`,
+        String(Math.min(15, maximum)),
+      );
+    if (value === null) return;
+    const minutes = Number(value);
+    if (!Number.isInteger(minutes) || minutes < 1) {
+      setError("Enter a whole number of break minutes");
+      return;
+    }
+    await action("/api/day/break/start", { minutes });
+  }
+  async function endBreak() {
+    await action("/api/day/break/end", {});
   }
   async function add(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -460,10 +501,14 @@ export default function TodayDashboard({ name }: { name: string }) {
             <div className="status-row">
               <div>
                 <div>
-                  <span className={`status-dot ${active ? "live" : ""}`} />
+                  <span className={`status-dot ${active && !day?.onBreak ? "live" : ""}`} />
                   {day
                     ? `Session ${currentSessionNumber} · ${
-                        active ? "in progress" : "completed"
+                        active
+                          ? day.onBreak
+                            ? "on break"
+                            : "in progress"
+                          : "completed"
                       }`
                     : "Not started"}
                 </div>
@@ -477,7 +522,9 @@ export default function TodayDashboard({ name }: { name: string }) {
                 </div>
                 <div className="muted">
                   {active
-                    ? `${day.activities.length} visit${day.activities.length === 1 ? "" : "s"} logged so far`
+                    ? day.onBreak
+                      ? `Location tracking paused until ${new Date(day.activeBreakEndsAt ?? "").toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+                      : `${day.activities.length} visit${day.activities.length === 1 ? "" : "s"} logged so far`
                     : day?.status === "completed"
                       ? "Your record is safely closed"
                       : "Ready when you are"}
@@ -497,18 +544,33 @@ export default function TodayDashboard({ name }: { name: string }) {
                 </button>
               ) : day.status === "active" ? (
                 <>
-                  <button
-                    className="btn btn-red"
-                    onClick={openVisitModal}
-                    disabled={busy}
-                  >
-                    <Plus size={16} />
-                    Log a visit
-                  </button>
+                  {day.onBreak ? (
+                    <button className="btn btn-primary" onClick={endBreak} disabled={busy}>
+                      <Coffee size={16} /> End break
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="btn btn-red"
+                        onClick={openVisitModal}
+                        disabled={busy}
+                      >
+                        <Plus size={16} />
+                        Log a visit
+                      </button>
+                      <button
+                        className="btn btn-plain"
+                        onClick={startBreak}
+                        disabled={busy || (day.breakRemainingMinutesToday ?? 0) < 1}
+                      >
+                        <Coffee size={16} /> Take a break
+                      </button>
+                    </>
+                  )}
                   <button
                     className="btn btn-plain"
                     onClick={end}
-                    disabled={busy}
+                    disabled={busy || day.onBreak}
                   >
                     <Check size={16} />
                     End day
@@ -528,7 +590,9 @@ export default function TodayDashboard({ name }: { name: string }) {
                 <span>
                   Record my route every 2 minutes while this page is active.
                   {active
-                    ? " You can pause this at any time."
+                    ? day.onBreak
+                      ? " Tracking remains off for the break."
+                      : " You can pause this at any time."
                     : ` Required to start ${day ? `session ${nextSessionNumber}` : "the day"}.`}
                 </span>
               </label>
@@ -541,12 +605,12 @@ export default function TodayDashboard({ name }: { name: string }) {
             <RouteMap
               routePoints={routePoints}
               pathPoints={day.routePath}
-              liveTrail={active ? liveTrail : []}
+              liveTrail={active && !day.onBreak ? liveTrail : []}
               visits={day.activities}
               active={active}
-              tracking={active && trackingAllowed}
+              tracking={active && trackingAllowed && !day.onBreak}
               trackingUnavailable={trackingUnavailable}
-              currentLocation={active ? liveLocation : null}
+              currentLocation={active && !day.onBreak ? liveLocation : null}
               sessionNumber={currentSessionNumber || undefined}
             />
           )}
@@ -605,11 +669,27 @@ export default function TodayDashboard({ name }: { name: string }) {
             </p>
           </section>
           <section className="card card-pad" style={{ marginTop: 22 }}>
+            <span className="eyebrow">Break allowance</span>
+            <div className="metric-value">
+              {day?.breakRemainingMinutesToday?.toFixed(0) ?? "—"} <small>min left</small>
+            </div>
+            <p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>
+              {day
+                ? `${day.breakUsedMinutesToday?.toFixed(1) ?? "0"} of ${day.breakAllowanceMinutesToday ?? 0} minutes used today.`
+                : "Your manager’s daily allowance appears after you start."}
+            </p>
+            {day && (
+              <Link className="notice-link break-request-link" href="/approvals">
+                Request more break time
+              </Link>
+            )}
+          </section>
+          <section className="card card-pad" style={{ marginTop: 22 }}>
             <h2 className="section-title">A clean record</h2>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.7 }}>
               With route tracking enabled, a location point is saved every two
               minutes while this page remains active. Tracking stops when you
-              end the day, pause consent, close, or suspend the page.
+              take a break, end the day, pause consent, close, or suspend the page.
             </p>
           </section>
         </aside>

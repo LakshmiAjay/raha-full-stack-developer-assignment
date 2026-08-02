@@ -14,6 +14,9 @@ export const activitySchema = z.object({
   location: locationSchema,
 });
 export const endDaySchema = z.object({ location: locationSchema });
+export const startBreakSchema = z.object({
+  minutes: z.number().int().min(1).max(240),
+});
 export const routeSampleSchema = z.object({
   location: locationSchema.refine(
     (location) => location.accuracy <= 250,
@@ -39,6 +42,14 @@ export const approvalRequestSchema = z.discriminatedUnion("type", [
     requestedTime: timeSchema.optional(),
     reason: z.string().trim().min(3).max(500),
   }),
+  z.object({
+    type: z.literal("break_extension"),
+    requestedDate: dateSchema,
+    reason: z.string().trim().min(3).max(500),
+    payload: z.object({
+      additionalMinutes: z.coerce.number().int().min(5).max(240),
+    }),
+  }),
 ]);
 export const approvalDecisionSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
@@ -48,6 +59,7 @@ export const workPolicySchema = z.object({
   timezone: z.string().trim().min(1).max(80),
   startTime: timeSchema,
   endTime: timeSchema,
+  breakMinutes: z.number().int().min(0).max(480),
   saturdayHoliday: z.boolean(),
   sundayHoliday: z.boolean(),
   holidays: z
