@@ -8,12 +8,12 @@ Requirements: Node.js 20+, MongoDB, and a browser that permits geolocation (loca
 
 MongoDB is optional for evaluation: when `MONGODB_URI` is absent, the application automatically starts in demo mode with in-memory users, leads, historical days, CSV data, and a working associate day flow. Demo changes reset whenever the server restarts. Production deployments should always configure MongoDB.
 
-1. Copy `.env.example` to `.env.local` and set `MONGODB_URI` and a strong `AUTH_SECRET`.
+1. Copy `.env.example` to `.env.local` and set `MONGODB_URI`, a strong `AUTH_SECRET`, and a strong temporary `DEFAULT_USER_PASSWORD`.
 2. Run `npm install`.
 3. Run `npm run seed`.
 4. Run `npm run dev` and open `http://localhost:3000`.
 
-Seed login accounts (all use `Raha@123`):
+Seed login accounts use the server-only `DEFAULT_USER_PASSWORD` value:
 
 - Branch head: `meera@raha.in`
 - Sales associate: `arjun@raha.in` (also `nisha@raha.in`, `vikram@raha.in`)

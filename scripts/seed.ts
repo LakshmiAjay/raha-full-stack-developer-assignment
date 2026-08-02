@@ -1,6 +1,7 @@
 import { MongoClient, ObjectId } from "mongodb";
 import { hash } from "bcryptjs";
 import { config } from "dotenv";
+import { defaultUserPassword } from "../lib/password";
 config({ path: ".env.local" });
 
 async function main() {
@@ -18,7 +19,7 @@ async function main() {
     db.collection("workPolicies").deleteMany({}),
   ]);
   const branchId = new ObjectId(),
-    passwordHash = await hash("Raha@123", 12),
+    passwordHash = await hash(defaultUserPassword(), 12),
     headId = new ObjectId(),
     associateIds = [new ObjectId(), new ObjectId(), new ObjectId()];
   await db.collection("users").insertMany([
@@ -200,8 +201,8 @@ async function main() {
       .createIndex({ recipientId: 1, branchId: 1, createdAt: -1 }),
   ]);
   console.log("Seeded Raha Fielddesk");
-  console.log("Head: meera@raha.in / Raha@123");
-  console.log("Associate: arjun@raha.in / Raha@123");
+  console.log("Seeded branch head: meera@raha.in");
+  console.log("Seeded associate: arjun@raha.in");
   await client.close();
 }
 

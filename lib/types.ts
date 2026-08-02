@@ -63,6 +63,8 @@ export type User = {
   role: Role;
   branchId: ObjectId;
   managerId?: ObjectId;
+  createdAt?: Date;
+  passwordChangedAt?: Date;
 };
 export type Lead = {
   _id: ObjectId;

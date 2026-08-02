@@ -4,6 +4,26 @@ export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+export const createAssociateSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().email().transform((email) => email.toLowerCase()),
+});
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(6).max(200),
+    newPassword: z
+      .string()
+      .min(8)
+      .max(72)
+      .regex(/[A-Z]/, "Password must include an uppercase letter")
+      .regex(/[a-z]/, "Password must include a lowercase letter")
+      .regex(/\d/, "Password must include a number")
+      .regex(/[^A-Za-z0-9]/, "Password must include a special character"),
+  })
+  .refine((value) => value.currentPassword !== value.newPassword, {
+    message: "New password must be different from the current password",
+    path: ["newPassword"],
+  });
 export const startDaySchema = z.object({
   location: locationSchema,
   timezone: z.string().min(1).max(80),

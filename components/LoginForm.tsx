@@ -45,7 +45,6 @@ export default function LoginForm() {
             type="email"
             required
             placeholder="you@raha.in"
-            defaultValue="arjun@raha.in"
           />
         </div>
         <div className="field">
@@ -56,7 +55,6 @@ export default function LoginForm() {
             type="password"
             required
             placeholder="••••••••"
-            defaultValue="Raha@123"
           />
         </div>
         <button
@@ -67,12 +65,6 @@ export default function LoginForm() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="muted" style={{ fontSize: 12, marginTop: 22 }}>
-        Demo accounts: <strong>arjun@raha.in</strong> or{" "}
-        <strong>meera@raha.in</strong>
-        <br />
-        Password: <strong>Raha@123</strong>
-      </p>
     </div>
   );
 }
