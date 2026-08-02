@@ -22,7 +22,7 @@ The disposable seed accounts use `RahaDemo@2026`, matching the `DEFAULT_USER_PAS
 
 ### Live demo
 
-Add the final Vercel HTTPS URL here after deploying the default-branch commit.
+https://raha-assignment.vlajay.com
 
 ### Seed data
 
