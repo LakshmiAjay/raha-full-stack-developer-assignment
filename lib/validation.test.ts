@@ -14,13 +14,13 @@ describe("account validation", () => {
   it("requires a strong new password", () => {
     expect(() =>
       changePasswordSchema.parse({
-        currentPassword: "Raha@123",
+        currentPassword: "Current@123",
         newPassword: "onlylowercase",
       }),
     ).toThrow();
     expect(
       changePasswordSchema.parse({
-        currentPassword: "Raha@123",
+        currentPassword: "Current@123",
         newPassword: "Secure@456",
       }).newPassword,
     ).toBe("Secure@456");
@@ -29,8 +29,8 @@ describe("account validation", () => {
   it("rejects reuse of the current password", () => {
     expect(() =>
       changePasswordSchema.parse({
-        currentPassword: "Raha@123",
-        newPassword: "Raha@123",
+        currentPassword: "Current@123",
+        newPassword: "Current@123",
       }),
     ).toThrow();
   });

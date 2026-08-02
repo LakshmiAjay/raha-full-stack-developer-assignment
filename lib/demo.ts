@@ -5,7 +5,7 @@ import type {
   NotificationType,
   RouteCoordinate,
 } from "./types";
-import { DEFAULT_PASSWORD } from "./password";
+import { defaultUserPassword } from "./password";
 export const demoEnabled = () => !process.env.MONGODB_URI;
 export const demoBranchId = "64b000000000000000000001";
 type DemoUser = {
@@ -235,7 +235,7 @@ export const demoDays = () =>
   state.rahaDemoDays ?? (state.rahaDemoDays = history());
 export const demoUser = (id: string) => demoUsers.find((u) => u._id === id);
 export const demoPassword = (id: string) =>
-  (state.rahaDemoPasswords ??= new Map()).get(id) ?? DEFAULT_PASSWORD;
+  (state.rahaDemoPasswords ??= new Map()).get(id) ?? defaultUserPassword();
 export const setDemoPassword = (id: string, password: string) =>
   (state.rahaDemoPasswords ??= new Map()).set(id, password);
 export const demoId = () =>

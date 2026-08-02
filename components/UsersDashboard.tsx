@@ -20,15 +20,21 @@ export default function UsersDashboard() {
     [resettingId, setResettingId] = useState<string | null>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
+    [defaultPassword, setDefaultPassword] = useState(""),
     [initialPassword, setInitialPassword] = useState(""),
     [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const response = await fetch("/api/users", { cache: "no-store" }),
-        result = await readJson<{ users?: Associate[]; error?: string }>(response);
+        result = await readJson<{
+          users?: Associate[];
+          defaultPassword?: string;
+          error?: string;
+        }>(response);
       if (!response.ok) throw new Error(result.error || "Could not load associates");
       setUsers(result.users || []);
+      setDefaultPassword(result.defaultPassword || "");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load associates");
     } finally {
@@ -88,7 +94,7 @@ export default function UsersDashboard() {
   async function resetPassword(user: Associate) {
     if (
       !window.confirm(
-        `Reset ${user.name}'s password to the branch default, Raha@123?`,
+        `Reset ${user.name}'s password to the configured branch default?`,
       )
     )
       return;
@@ -99,7 +105,7 @@ export default function UsersDashboard() {
       const response = await fetch(`/api/users/${user._id}/reset-password`, {
           method: "POST",
         }),
-        result = await readJson<{ error?: string }>(response);
+        result = await readJson<{ defaultPassword?: string; error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "Could not reset password");
       setUsers((current) =>
         current.map((item) =>
@@ -108,7 +114,8 @@ export default function UsersDashboard() {
             : item,
         ),
       );
-      setMessage(`${user.name}'s password was reset to Raha@123.`);
+      if (result.defaultPassword) setDefaultPassword(result.defaultPassword);
+      setMessage(`${user.name}'s password was reset to the branch default.`);
     } catch (resetError) {
       setError(
         resetError instanceof Error
@@ -140,7 +147,8 @@ export default function UsersDashboard() {
             <span className="eyebrow">Associates</span>
             <h2 className="section-title">{users.length} branch users</h2>
             <p className="muted default-password-note">
-              New associate default password: <strong>Raha@123</strong>
+              New associate default password:{" "}
+              <strong>{defaultPassword || "Configured on the server"}</strong>
             </p>
           </div>
         </div>
@@ -257,7 +265,7 @@ export default function UsersDashboard() {
                 </div>
                 <p className="muted account-copy">
                   The account will start with the branch default password,
-                  <strong> Raha@123</strong>.
+                  <strong> {defaultPassword || "configured on the server"}</strong>.
                 </p>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-plain" onClick={close}>Cancel</button>

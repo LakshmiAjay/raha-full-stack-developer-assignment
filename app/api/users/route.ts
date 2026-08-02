@@ -11,7 +11,7 @@ import {
 import { apiError, unauthorized } from "@/lib/http";
 import type { User } from "@/lib/types";
 import { createAssociateSchema } from "@/lib/validation";
-import { DEFAULT_PASSWORD } from "@/lib/password";
+import { defaultUserPassword } from "@/lib/password";
 
 export async function GET() {
   const session = await requireSession("head");
@@ -22,6 +22,7 @@ export async function GET() {
         (user) =>
           user.role === "associate" && user.managerId === session.userId,
       ),
+      defaultPassword: defaultUserPassword(),
       demo: true,
     });
   const users = await (await db())
@@ -34,7 +35,7 @@ export async function GET() {
     .project({ name: 1, email: 1, createdAt: 1, passwordChangedAt: 1 })
     .sort({ name: 1 })
     .toArray();
-  return NextResponse.json({ users });
+  return NextResponse.json({ users, defaultPassword: defaultUserPassword() });
 }
 
 export async function POST(request: Request) {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   if (!session) return unauthorized();
   try {
     const details = createAssociateSchema.parse(await request.json()),
-      password = DEFAULT_PASSWORD,
+      password = defaultUserPassword(),
       createdAt = new Date();
     if (demoEnabled()) {
       if (demoUsers.some((user) => user.email === details.email))

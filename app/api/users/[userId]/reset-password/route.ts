@@ -9,7 +9,7 @@ import {
   setDemoPassword,
 } from "@/lib/demo";
 import { apiError, unauthorized } from "@/lib/http";
-import { DEFAULT_PASSWORD } from "@/lib/password";
+import { defaultUserPassword } from "@/lib/password";
 import type { User } from "@/lib/types";
 
 export async function POST(
@@ -20,6 +20,7 @@ export async function POST(
   if (!session) return unauthorized();
   try {
     const { userId } = await params;
+    const password = defaultUserPassword();
     if (!ObjectId.isValid(userId))
       return NextResponse.json({ error: "Associate not found" }, { status: 404 });
 
@@ -33,9 +34,9 @@ export async function POST(
       );
       if (!associate)
         return NextResponse.json({ error: "Associate not found" }, { status: 404 });
-      setDemoPassword(associate._id, DEFAULT_PASSWORD);
+      setDemoPassword(associate._id, password);
       delete associate.passwordChangedAt;
-      return NextResponse.json({ ok: true, defaultPassword: DEFAULT_PASSWORD });
+      return NextResponse.json({ ok: true, defaultPassword: password });
     }
 
     const result = await (await db()).collection<User>("users").updateOne(
@@ -46,13 +47,13 @@ export async function POST(
         branchId: new ObjectId(session.branchId),
       },
       {
-        $set: { passwordHash: await hash(DEFAULT_PASSWORD, 12) },
+        $set: { passwordHash: await hash(password, 12) },
         $unset: { passwordChangedAt: "" },
       },
     );
     if (!result.matchedCount)
       return NextResponse.json({ error: "Associate not found" }, { status: 404 });
-    return NextResponse.json({ ok: true, defaultPassword: DEFAULT_PASSWORD });
+    return NextResponse.json({ ok: true, defaultPassword: password });
   } catch (error) {
     return apiError(error);
   }
